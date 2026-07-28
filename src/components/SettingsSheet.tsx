@@ -37,6 +37,12 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   const [pin, setPin] = useState('');
   const [partnerEmail, setPartnerEmail] = useState('');
 
+  // Reset verification states
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPinInput, setResetPinInput] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
+
   // Info messages
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [partnerStatus, setPartnerStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -139,6 +145,33 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     });
     setPartnerEmail('');
     setTimeout(() => setPartnerStatus(null), 4000);
+  };
+
+  const handleExecuteReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const correctPin = user?.pin || '1234';
+    if (resetPinInput.trim() !== correctPin) {
+      setResetError('Incorrect security PIN. Please try again.');
+      return;
+    }
+    if (!currentHouseholdId) {
+      setResetError('No household ID found.');
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      setResetError(null);
+      await wipeHouseholdData(currentHouseholdId);
+      setShowResetModal(false);
+      setResetPinInput('');
+      setIsResetting(false);
+      alert('Household data wiped successfully.');
+    } catch (err) {
+      console.error('Failed to wipe data:', err);
+      setResetError('Failed to reset data. Please try again.');
+      setIsResetting(false);
+    }
   };
 
   const handleDisconnectMember = async (memberId: string) => {
@@ -378,25 +411,61 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
           </div>
 
           <div className="space-y-3">
-            <button
-              onClick={async () => {
-                const confirmed = window.confirm('Are you absolutely sure? This will delete ALL transactions, bills, debts, and accounts for your household. This cannot be undone.');
-                if (confirmed) {
-                  await wipeHouseholdData(currentHouseholdId);
-                  alert('Household data wiped successfully.');
-                  window.location.reload();
-                }
-              }}
-              className="w-full flex items-center justify-between p-4 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/20 rounded-2xl transition-all group"
-            >
-              <div className="text-left">
-                <p className="text-sm font-bold text-rose-500 mb-0.5">Reset Household Data</p>
-                <p className="text-[10px] font-medium text-rose-500/70">Wipe all transactions, bills, and accounts</p>
-              </div>
-              <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center group-hover:bg-rose-500/20 transition-colors">
-                <Trash2 size={16} className="text-rose-500" />
-              </div>
-            </button>
+            {!showResetModal ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetModal(true);
+                  setResetPinInput('');
+                  setResetError(null);
+                }}
+                className="w-full flex items-center justify-between p-4 bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/20 rounded-2xl transition-all group"
+              >
+                <div className="text-left">
+                  <p className="text-sm font-bold text-rose-500 mb-0.5">Reset Household Data</p>
+                  <p className="text-[10px] font-medium text-rose-500/70">Wipe all transactions, bills, and accounts</p>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-rose-500/10 flex items-center justify-center group-hover:bg-rose-500/20 transition-colors">
+                  <Trash2 size={16} className="text-rose-500" />
+                </div>
+              </button>
+            ) : (
+              <form onSubmit={handleExecuteReset} className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-black text-rose-600 dark:text-rose-400 uppercase tracking-wider">Confirm Security PIN</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowResetModal(false)}
+                    className="text-xs font-bold text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+                  Enter your 4-digit security PIN to permanently erase all household data.
+                </p>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={resetPinInput}
+                  onChange={e => setResetPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter PIN (e.g. 1234)"
+                  className="w-full bg-white dark:bg-zinc-900 border border-rose-500/30 rounded-xl px-4 py-2.5 text-center text-zinc-900 dark:text-zinc-100 font-bold text-sm tracking-widest focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  autoFocus
+                  required
+                />
+                {resetError && (
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">{resetError}</p>
+                )}
+                <button
+                  type="submit"
+                  disabled={isResetting || resetPinInput.length < 4}
+                  className="w-full py-3 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  {isResetting ? 'Wiping Data...' : 'Confirm & Wipe All Data'}
+                </button>
+              </form>
+            )}
 
             <button
               onClick={() => signOut(auth)}

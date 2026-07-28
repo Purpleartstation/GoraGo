@@ -10,7 +10,7 @@ import { auth, googleProvider } from '../firebase';
 import { Wallet, Copy, Check, AlertCircle, UserCheck, Mail, Lock, User as UserIcon, ArrowRight } from 'lucide-react';
 
 export default function AuthScreen() {
-  const [activeTab, setActiveTab] = useState<'google' | 'email'>('email');
+  const [activeTab, setActiveTab] = useState<'email' | 'google'>('email');
   const [isSignUp, setIsSignUp] = useState(false);
   
   const [email, setEmail] = useState('');
@@ -123,19 +123,19 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-16 h-16 bg-amber-500 rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-amber-500/20">
-        <Wallet className="text-black" size={32} />
+    <div className="min-h-screen bg-white dark:bg-zinc-950 flex flex-col items-center justify-center p-6 text-center transition-colors duration-300">
+      <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-purple-500/25">
+        <Wallet className="text-white" size={32} />
       </div>
-      <h1 className="text-3xl font-black text-white tracking-tight mb-2">Kita</h1>
-      <p className="text-zinc-400 font-medium mb-8 max-w-[280px]">
+      <h1 className="text-3xl font-black text-zinc-900 dark:text-white tracking-tight mb-2">GoraGo</h1>
+      <p className="text-zinc-600 dark:text-zinc-400 font-medium mb-8 max-w-[280px] text-sm">
         Track your finances, sync with your partner in real-time.
       </p>
 
       {/* Error & Setup Helper Notice */}
       {errorMessage && (
-        <div className="w-full max-w-sm mb-6 p-4 bg-red-950/40 border border-red-500/30 rounded-2xl text-left text-sm text-red-200 space-y-3">
-          <div className="flex items-start gap-2 text-red-400 font-semibold">
+        <div className="w-full max-w-sm mb-6 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-500/30 rounded-2xl text-left text-sm text-red-800 dark:text-red-200 space-y-3 shadow-sm">
+          <div className="flex items-start gap-2 text-red-600 dark:text-red-400 font-semibold">
             <AlertCircle size={18} className="mt-0.5 shrink-0" />
             <span>
               {errorType === 'unauthorized-domain' && 'Firebase Authorized Domain Required'}
@@ -145,53 +145,27 @@ export default function AuthScreen() {
             </span>
           </div>
 
-          <p className="text-xs text-red-300/90 leading-relaxed">
+          <p className="text-xs text-red-700 dark:text-red-300/90 leading-relaxed">
             {errorMessage}
           </p>
 
-          {/* Detailed domain authorization helper */}
           {errorType === 'unauthorized-domain' && (
-            <div className="pt-2 border-t border-red-500/20 space-y-2">
-              <p className="text-xs text-zinc-300">
+            <div className="pt-2 border-t border-red-200 dark:border-red-500/20 space-y-2">
+              <p className="text-xs text-zinc-700 dark:text-zinc-300">
                 To fix Google Sign-In, add this domain to <strong>Firebase Console &gt; Authentication &gt; Settings &gt; Authorized domains</strong>:
               </p>
               
-              <div className="flex items-center justify-between gap-2 bg-zinc-900 border border-zinc-800 p-2 rounded-xl">
-                <code className="text-xs font-mono text-amber-400 truncate">{currentDomain}</code>
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-2 rounded-xl">
+                <code className="text-xs font-mono text-purple-600 dark:text-purple-400 truncate">{currentDomain}</code>
                 <button
                   type="button"
                   onClick={handleCopyDomain}
-                  className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0 transition-colors"
+                  className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0 transition-colors"
                 >
-                  {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
+                  {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
                   <span>{copied ? 'Copied' : 'Copy'}</span>
                 </button>
               </div>
-
-              <p className="text-[11px] text-zinc-400">
-                Alternatively, try signing in with Email/Password below.
-              </p>
-            </div>
-          )}
-
-          {/* Detailed anonymous auth helper */}
-          {errorType === 'anonymous-disabled' && (
-            <div className="pt-2 border-t border-red-500/20 space-y-2">
-              <p className="text-xs text-zinc-300">
-                In <strong>Firebase Console &gt; Authentication &gt; Sign-in method</strong>, enable <strong>Anonymous</strong> provider.
-              </p>
-              <p className="text-[11px] text-zinc-400">
-                Or sign in using Email & Password below.
-              </p>
-            </div>
-          )}
-
-          {/* Detailed email auth helper */}
-          {errorType === 'email-disabled' && (
-            <div className="pt-2 border-t border-red-500/20 space-y-2">
-              <p className="text-xs text-zinc-300">
-                In <strong>Firebase Console &gt; Authentication &gt; Sign-in method</strong>, enable <strong>Email/Password</strong> provider.
-              </p>
             </div>
           )}
         </div>
@@ -200,14 +174,14 @@ export default function AuthScreen() {
       {/* Main Auth Container */}
       <div className="w-full max-w-sm space-y-4">
         {/* Toggle Mode Tabs */}
-        <div className="grid grid-cols-2 p-1 bg-zinc-900 border border-zinc-800 rounded-2xl">
+        <div className="grid grid-cols-2 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
           <button
             type="button"
             onClick={() => setActiveTab('email')}
-            className={`py-2 text-xs font-semibold rounded-xl transition-all ${
+            className={`py-2 text-xs font-bold rounded-xl transition-all ${
               activeTab === 'email'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             Email / Password
@@ -215,10 +189,10 @@ export default function AuthScreen() {
           <button
             type="button"
             onClick={() => setActiveTab('google')}
-            className={`py-2 text-xs font-semibold rounded-xl transition-all ${
+            className={`py-2 text-xs font-bold rounded-xl transition-all ${
               activeTab === 'google'
-                ? 'bg-zinc-800 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
             }`}
           >
             Google Sign-In
@@ -230,40 +204,40 @@ export default function AuthScreen() {
           <form onSubmit={handleEmailAuth} className="space-y-3 text-left">
             {isSignUp && (
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Your Name</label>
+                <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">Your Name</label>
                 <div className="relative">
-                  <UserIcon className="absolute left-3.5 top-3.5 text-zinc-500" size={18} />
+                  <UserIcon className="absolute left-3.5 top-3.5 text-zinc-400 dark:text-zinc-500" size={18} />
                   <input
                     type="text"
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="Alex Smith"
-                    className="w-full bg-zinc-900 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-amber-500 text-sm"
+                    className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-purple-500 text-sm shadow-sm"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Email address</label>
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3.5 text-zinc-500" size={18} />
+                <Mail className="absolute left-3.5 top-3.5 text-zinc-400 dark:text-zinc-500" size={18} />
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="alex@example.com"
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-amber-500 text-sm"
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-purple-500 text-sm shadow-sm"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1">Password</label>
+              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-3.5 text-zinc-500" size={18} />
+                <Lock className="absolute left-3.5 top-3.5 text-zinc-400 dark:text-zinc-500" size={18} />
                 <input
                   type="password"
                   required
@@ -271,7 +245,7 @@ export default function AuthScreen() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-zinc-900 border border-zinc-800 text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-amber-500 text-sm"
+                  className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white pl-10 pr-4 py-3 rounded-2xl focus:outline-none focus:border-purple-500 text-sm shadow-sm"
                 />
               </div>
             </div>
@@ -279,10 +253,10 @@ export default function AuthScreen() {
             <button
               type="submit"
               disabled={loading || guestLoading}
-              className="w-full h-12 mt-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              className="w-full h-12 mt-2 bg-purple-600 hover:bg-purple-500 text-white font-black text-sm rounded-2xl flex items-center justify-center gap-2 transition-all shadow-md shadow-purple-500/25 active:scale-95 disabled:opacity-50"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
                   <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
@@ -299,7 +273,7 @@ export default function AuthScreen() {
                   setErrorMessage(null);
                   setErrorType(null);
                 }}
-                className="text-xs text-zinc-400 hover:text-amber-400 transition-colors"
+                className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline transition-colors"
               >
                 {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
               </button>
@@ -314,13 +288,13 @@ export default function AuthScreen() {
               type="button"
               onClick={handleGoogleLogin}
               disabled={loading || guestLoading}
-              className="w-full h-14 px-6 bg-white hover:bg-zinc-100 text-black font-bold rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+              className="w-full h-14 px-6 bg-zinc-50 hover:bg-zinc-100 dark:bg-zinc-900 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white font-bold text-sm rounded-2xl flex items-center justify-center gap-3 shadow-sm active:scale-95 transition-all disabled:opacity-50"
             >
               {loading ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <svg viewBox="0 0 24 24" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
+                  <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -336,10 +310,10 @@ export default function AuthScreen() {
         {/* Divider */}
         <div className="relative py-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-zinc-800" />
+            <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-zinc-950 px-2 text-zinc-500 font-semibold">Or</span>
+            <span className="bg-white dark:bg-zinc-950 px-2 text-zinc-400 font-bold">Or</span>
           </div>
         </div>
 
@@ -348,13 +322,13 @@ export default function AuthScreen() {
           type="button"
           onClick={handleGuestLogin}
           disabled={loading || guestLoading}
-          className="w-full h-12 px-6 bg-zinc-900 border border-zinc-800 hover:bg-zinc-850 text-zinc-300 font-medium rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+          className="w-full h-12 px-6 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300 font-bold text-sm rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-sm disabled:opacity-50"
         >
           {guestLoading ? (
-            <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
           ) : (
             <>
-              <UserCheck size={18} className="text-amber-500" />
+              <UserCheck size={18} className="text-purple-600 dark:text-purple-400" />
               <span>Continue as Guest</span>
             </>
           )}
@@ -363,5 +337,3 @@ export default function AuthScreen() {
     </div>
   );
 }
-
-

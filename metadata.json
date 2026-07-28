@@ -1,5 +1,5 @@
 {
-  "name": "Kita",
+  "name": "GoraGo",
   "description": "Personal and household finance tracker app",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
