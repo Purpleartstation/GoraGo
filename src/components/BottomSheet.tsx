@@ -20,7 +20,7 @@ export default function BottomSheet({ isOpen, onClose, title, children }: Bottom
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/60 z-50 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm"
           />
           
           {/* Sheet */}
@@ -29,7 +29,7 @@ export default function BottomSheet({ isOpen, onClose, title, children }: Bottom
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 text-zinc-100 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.8)] border-t border-white/10 max-h-[90vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-[70] bg-white/95 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_-10px_40px_rgba(0,0,0,0.8)] border-t border-white/60 dark:border-white/10 max-h-[90vh] flex flex-col backdrop-blur-2xl transition-colors duration-300"
             drag="y"
             dragConstraints={{ top: 0 }}
             dragElastic={0.2}
@@ -41,15 +41,15 @@ export default function BottomSheet({ isOpen, onClose, title, children }: Bottom
           >
             {/* Drag Handle */}
             <div className="w-full flex justify-center pt-4 pb-3 cursor-grab active:cursor-grabbing">
-              <div className="w-12 h-1.5 bg-zinc-800 rounded-full" />
+              <div className="w-12 h-1.5 bg-zinc-300 dark:bg-zinc-800 rounded-full" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pb-5 border-b border-white/5">
+            <div className="flex items-center justify-between px-6 pb-5 border-b border-zinc-200 dark:border-white/5">
               <h2 className="text-xl font-black tracking-tight">{title}</h2>
               <button 
                 onClick={onClose}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-900 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
               >
                 <X size={20} />
               </button>

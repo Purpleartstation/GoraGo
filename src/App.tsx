@@ -20,6 +20,20 @@ function App() {
   const currentHouseholdId = useAppStore(s => s.currentHouseholdId);
   const setCurrentUser = useAppStore(s => s.setCurrentUser);
   const setCurrentHousehold = useAppStore(s => s.setCurrentHousehold);
+  const themeMode = useAppStore(s => s.themeMode);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      if (themeMode === 'dark') {
+        root.classList.add('dark');
+        root.style.colorScheme = 'dark';
+      } else {
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+      }
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     async function loadProfile() {

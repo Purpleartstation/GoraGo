@@ -4,8 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-background-dark text-slate-100 antialiased font-sans overscroll-none;
-    color-scheme: dark;
+    @apply bg-white text-zinc-900 dark:bg-zinc-950 dark:text-slate-100 antialiased font-sans overscroll-none transition-colors duration-300;
   }
 
   /* Prevent text size adjustment on orientation change */

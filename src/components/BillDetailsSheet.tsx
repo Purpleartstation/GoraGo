@@ -5,7 +5,7 @@ import { db, collections } from '../db';
 import type { Bill, Account } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { Trash2, RefreshCw, Edit2, CalendarDays, X } from 'lucide-react';
+import { Trash2, RefreshCw, Edit2, CalendarDays, X, Sliders, HelpCircle } from 'lucide-react';
 import { MonthlyDayPicker, SpecificDatePicker } from './CalendarPickers';
 
 interface BillDetailsSheetProps {
@@ -28,6 +28,11 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
 
   // Selected Account for Payment State
   const [paymentAccountId, setPaymentAccountId] = useState('');
+
+  // Variable amount state
+  const [isVariableAmount, setIsVariableAmount] = useState(false);
+  const [showVariableInfo, setShowVariableInfo] = useState(false);
+  const [verifyAmount, setVerifyAmount] = useState('');
 
   // Due Schedule state (same as BillSheet)
   const [dueType, setDueType] = useState<'monthly' | 'specific'>('monthly');
@@ -54,6 +59,8 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       setTempName(bill.name);
       setTempAmount(bill.amount.toString());
       setPaymentAccountId(bill.accountId);
+      setIsVariableAmount(Boolean(bill.isVariableAmount || bill.variableAmountFlag));
+      setVerifyAmount(bill.amount ? bill.amount.toString() : '');
       
       // Load schedule fields
       setDueType(bill.dueType || 'monthly');
@@ -61,6 +68,20 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       setSpecificDates(bill.specificDates || []);
     }
   }, [bill]);
+
+  const handleToggleVariableAmount = async (flag: boolean) => {
+    setIsVariableAmount(flag);
+    if (!billId) return;
+    await updateDoc(doc(db, 'bills', billId), {
+      isVariableAmount: flag,
+      variableAmountFlag: flag
+    });
+    if (bill?.recurringRuleId) {
+      await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), {
+        variableAmountFlag: flag
+      });
+    }
+  };
 
 
   // Focus input when editing starts
@@ -119,8 +140,13 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
     
     if (bill?.recurringRuleId) {
       const next = new Date();
-      next.setDate(day);
-      if (next <= new Date()) next.setMonth(next.getMonth() + 1);
+      const lastDayThisMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+      next.setDate(Math.min(day, lastDayThisMonth));
+      if (next <= new Date()) {
+        next.setMonth(next.getMonth() + 1);
+        const lastDayNextMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+        next.setDate(Math.min(day, lastDayNextMonth));
+      }
       await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), {
         nextRunDate: next.getTime()
       });
@@ -175,34 +201,47 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
       return;
     }
 
-    if (account.balance < bill.amount) {
-      alert(`Insufficient funds in ${account.name} (Balance: ₱${account.balance.toLocaleString()}) to pay ₱${bill.amount.toLocaleString()}!`);
+    const payAmount = isVariableAmount ? parseFloat(verifyAmount) : bill.amount;
+    if (isNaN(payAmount) || payAmount <= 0) {
+      alert('Please enter a valid bill amount to pay.');
       return;
     }
 
-    const confirmPay = window.confirm(`Confirm payment of ₱${bill.amount.toLocaleString()} to ${bill.name} using ${account.name}?`);
+    if (account.balance < payAmount) {
+      alert(`Insufficient funds in ${account.name} (Balance: ₱${account.balance.toLocaleString()}) to pay ₱${payAmount.toLocaleString()}!`);
+      return;
+    }
+
+    const confirmPay = window.confirm(`Confirm payment of ₱${payAmount.toLocaleString()} to ${bill.name} using ${account.name}?`);
     if (!confirmPay) return;
 
-    await updateDoc(doc(db, 'accounts', paymentAccountId), { balance: account.balance - bill.amount });
+    await updateDoc(doc(db, 'accounts', paymentAccountId), { balance: account.balance - payAmount });
 
     const txId = `tx_${Date.now()}`;
     await setDoc(doc(db, 'transactions', txId), {
       id: txId,
       accountId: paymentAccountId,
       categoryId: 'cat_bills',
-      amount: bill.amount,
+      amount: payAmount,
       type: 'expense',
       note: `Paid ${bill.name} Bill`,
       date: Date.now()
     });
 
     await updateDoc(doc(db, 'bills', bill.id), {
+      amount: payAmount,
       status: 'paid',
       lastPaidDate: Date.now(),
       timesRecurred: ((bill as any).timesRecurred || 0) + 1
     });
 
-    alert(`Successfully paid ₱${bill.amount.toLocaleString()} using ${account.name}!`);
+    if (bill.recurringRuleId) {
+      await updateDoc(doc(db, 'recurringRules', bill.recurringRuleId), {
+        amount: payAmount
+      });
+    }
+
+    alert(`Successfully paid ₱${payAmount.toLocaleString()} using ${account.name}!`);
     onClose();
   };
 
@@ -275,6 +314,46 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
                 className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3.5 text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-zinc-600 placeholder:text-zinc-600 placeholder:font-medium"
                 placeholder="0.00"
               />
+            </div>
+
+            {/* Variable Bill Toggle in Edit Mode */}
+            <div className="bg-zinc-900/50 border border-white/5 rounded-2xl p-4 transition-all space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <p className="text-xs font-bold text-zinc-100">Variable Bill Amount</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowVariableInfo(!showVariableInfo)}
+                    className="inline-flex items-center justify-center text-zinc-400 hover:text-amber-400 p-0.5 rounded-full hover:bg-white/5 transition-colors"
+                    title="What is a variable bill?"
+                  >
+                    <HelpCircle size={15} />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isVariableAmount}
+                  onClick={() => handleToggleVariableAmount(!isVariableAmount)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isVariableAmount ? 'bg-amber-500' : 'bg-zinc-800'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isVariableAmount ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Toggleable Description */}
+              {showVariableInfo && (
+                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-zinc-300 leading-snug animate-fadeIn">
+                  <p className="font-semibold text-amber-400 mb-0.5">Variable Amount Verification</p>
+                  Enable for bills with changing amounts (e.g., Meralco, Water, Credit Cards). You will be prompted to verify and adjust the exact statement amount before paying on the due date.
+                </div>
+              )}
             </div>
 
             {/* Due Schedule Section */}
@@ -456,15 +535,24 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
           <>
             {/* Bill Summary Card */}
             <div className="bg-gradient-to-br from-zinc-800 via-zinc-900 to-zinc-950 text-white p-6 rounded-3xl shadow-lg ring-1 ring-white/10 space-y-4">
-              <div>
-                <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">Bill Payment</p>
-                <h3 className="text-2xl font-black mt-1 tracking-tight text-zinc-100">{bill.name}</h3>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">Bill Payment</p>
+                  <h3 className="text-2xl font-black mt-1 tracking-tight text-zinc-100">{bill.name}</h3>
+                </div>
+                {isVariableAmount && (
+                  <span className="shrink-0 flex items-center gap-1 text-[9px] font-extrabold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+                    <Sliders size={11} /> Variable
+                  </span>
+                )}
               </div>
               <div>
-                <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">Amount Due</p>
+                <p className="text-[11px] text-zinc-400 font-black uppercase tracking-widest">
+                  {isVariableAmount ? 'Estimated / Statement Amount' : 'Amount Due'}
+                </p>
                 <p className="text-3xl font-black tracking-tight mt-1 text-zinc-100 tabular-nums">
                   <span className="opacity-50 mr-1 text-2xl font-bold">₱</span>
-                  {bill.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {(isVariableAmount && verifyAmount ? (parseFloat(verifyAmount) || bill.amount) : bill.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               </div>
             </div>
@@ -503,33 +591,56 @@ export default function BillDetailsSheet({ billId, isOpen, onClose }: BillDetail
 
             {/* Interactive Payment Section (Choose paying account this month) */}
             {!isPaid && (
-              <div className="space-y-3 p-4 bg-zinc-900/60 border border-white/5 rounded-2xl">
-                <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest pl-0.5">
-                  Select Paying Account (This Month)
-                </h4>
-                
-                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                  {accounts?.map(acc => (
-                    <button
-                      key={acc.id}
-                      type="button"
-                      onClick={() => setPaymentAccountId(acc.id)}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
-                        paymentAccountId === acc.id 
-                          ? 'border-zinc-500 bg-zinc-800 text-zinc-100 ring-1 ring-white/10' 
-                          : 'border-white/5 bg-zinc-900/50 text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      {acc.name} (₱{acc.balance.toLocaleString()})
-                    </button>
-                  ))}
+              <div className="space-y-4 p-4 bg-zinc-900/60 border border-white/5 rounded-2xl">
+                {isVariableAmount && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 text-amber-400">
+                      <Sliders size={14} />
+                      <p className="text-xs font-black uppercase tracking-wider">Verify & Adjust Final Statement Amount</p>
+                    </div>
+                    <p className="text-[11px] text-zinc-300 leading-snug">
+                      This bill is marked as variable. Enter or adjust the actual statement amount due for this cycle before paying:
+                    </p>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-amber-400 text-sm">₱</span>
+                      <input
+                        type="number"
+                        value={verifyAmount}
+                        onChange={e => setVerifyAmount(e.target.value)}
+                        className="w-full bg-zinc-950 border border-amber-500/40 rounded-xl pl-8 pr-4 py-2.5 text-zinc-100 font-black text-base focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest pl-0.5 mb-2">
+                    Select Paying Account (This Month)
+                  </h4>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {accounts?.map(acc => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => setPaymentAccountId(acc.id)}
+                        className={`flex-shrink-0 px-4 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                          paymentAccountId === acc.id 
+                            ? 'border-zinc-500 bg-zinc-800 text-zinc-100 ring-1 ring-white/10' 
+                            : 'border-white/5 bg-zinc-900/50 text-zinc-500 hover:text-zinc-300'
+                        }`}
+                      >
+                        {acc.name} (₱{acc.balance.toLocaleString()})
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <button
                   onClick={handlePay}
-                  className="w-full h-14 bg-zinc-100 hover:bg-white text-zinc-950 rounded-2xl font-black tracking-wide text-base shadow-sm active:scale-[0.98] transition-transform"
+                  className="w-full h-14 bg-zinc-100 hover:bg-white text-zinc-950 rounded-2xl font-black tracking-wide text-base shadow-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5"
                 >
-                  Pay with Selected Account
+                  Pay {isVariableAmount ? `₱${(parseFloat(verifyAmount) || 0).toLocaleString()}` : `₱${bill.amount.toLocaleString()}`} with Selected Account
                 </button>
               </div>
             )}

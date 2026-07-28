@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -21,11 +22,11 @@ export default {
           950: '#09090b',
         },
         surface: {
-          light: '#18181b', // Force dark
+          light: '#ffffff',
           dark: '#18181b',
         },
         background: {
-          light: '#09090b', // Force dark
+          light: '#ffffff',
           dark: '#09090b',
         }
       },

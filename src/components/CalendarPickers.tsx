@@ -25,6 +25,7 @@ export function MonthlyDayPicker({ selectedDay, onChange }: MonthlyDayPickerProp
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 
+  // Exact date count of the viewed month (28, 29, 30, or 31)
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const startDow = new Date(viewYear, viewMonth, 1).getDay();
 
@@ -45,9 +46,6 @@ export function MonthlyDayPicker({ selectedDay, onChange }: MonthlyDayPickerProp
       setViewMonth(m => m + 1);
     }
   };
-
-  // Cap at 28 so the chosen day is valid every month (Feb-safe)
-  const safeDays = Math.min(daysInMonth, 28);
 
   return (
     <div className="bg-zinc-900/60 border border-white/5 rounded-2xl overflow-hidden">
@@ -71,10 +69,10 @@ export function MonthlyDayPicker({ selectedDay, onChange }: MonthlyDayPickerProp
         ))}
       </div>
 
-      {/* Days — only 1–28 to be safe for all months */}
+      {/* Days — exact date count for the month (up to 31 days) */}
       <div className="grid grid-cols-7 px-3 pb-3 gap-y-1">
         {Array.from({ length: startDow }).map((_, i) => <div key={`e-${i}`} />)}
-        {Array.from({ length: safeDays }, (_, i) => i + 1).map(day => {
+        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
           const isSelected = selectedDay === day;
           return (
             <button
@@ -92,8 +90,8 @@ export function MonthlyDayPicker({ selectedDay, onChange }: MonthlyDayPickerProp
           );
         })}
       </div>
-      <p className="text-[10px] text-center text-zinc-600 pb-2 font-medium px-3">
-        Days 1–28 only — ensures the bill works every month, including February.
+      <p className="text-[10px] text-center text-zinc-500 pb-2 font-medium px-3">
+        Showing all {daysInMonth} days of {MONTHS[viewMonth]} — for months with fewer days, bills automatically adjust to the last day.
       </p>
     </div>
   );

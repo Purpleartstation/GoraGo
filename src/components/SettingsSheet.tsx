@@ -5,7 +5,7 @@ import { db, collections, wipeHouseholdData } from '../db';
 import type { User, Household } from '../db';
 import { useAppStore } from '../store';
 import BottomSheet from './BottomSheet';
-import { User as UserIcon, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle, Trash2 } from 'lucide-react';
+import { User as UserIcon, Users, RefreshCw, CheckCircle2, UserPlus, AlertCircle, Trash2, Sun, Moon } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -18,6 +18,8 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   const currentUserId = useAppStore((state) => state.currentUserId);
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
   const setCurrentUser = useAppStore((state) => state.setCurrentUser);
+  const themeMode = useAppStore((state) => state.themeMode);
+  const setThemeMode = useAppStore((state) => state.setThemeMode);
 
   // Fetch current user and household
   const [user] = useDocumentData<User>(
@@ -158,13 +160,48 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Account & Settings">
       <div className="space-y-6 max-h-[75vh] overflow-y-auto no-scrollbar pb-6">
         
-        {/* Simulation Switcher (Husband / Wife Demo Toggle) */}
-        <div className="bg-zinc-900/60 border border-white/5 rounded-2xl p-4 space-y-3">
+        {/* Appearance & Color Theme Switcher */}
+        <div className="bg-black/5 dark:bg-zinc-900/60 border border-black/10 dark:border-white/5 rounded-2xl p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <RefreshCw size={15} className="text-zinc-400 animate-pulse" />
-            <h4 className="text-[11px] font-black text-zinc-400 uppercase tracking-widest">Simulate Partner (Demo Mode)</h4>
+            <Sun size={15} className="text-purple-600 dark:text-fuchsia-400" />
+            <h4 className="text-[11px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">Appearance & Theme</h4>
           </div>
-          <p className="text-[12px] text-zinc-500 leading-normal">
+          <p className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-normal">
+            Toggle between Light Mode and Dark Mode to experience the vibrant Purple & Magenta theme adaptation.
+          </p>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <button
+              onClick={() => setThemeMode('light')}
+              className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+                themeMode === 'light'
+                  ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white shadow-md'
+                  : 'bg-black/5 dark:bg-zinc-900 border border-black/10 dark:border-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Sun size={14} />
+              <span>Light Mode</span>
+            </button>
+            <button
+              onClick={() => setThemeMode('dark')}
+              className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${
+                themeMode === 'dark'
+                  ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white shadow-md'
+                  : 'bg-black/5 dark:bg-zinc-900 border border-black/10 dark:border-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              <Moon size={14} />
+              <span>Dark Mode</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Simulation Switcher (Husband / Wife Demo Toggle) */}
+        <div className="bg-black/5 dark:bg-zinc-900/60 border border-black/10 dark:border-white/5 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <RefreshCw size={15} className="text-purple-600 dark:text-fuchsia-400 animate-pulse" />
+            <h4 className="text-[11px] font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-widest">Simulate Partner (Demo Mode)</h4>
+          </div>
+          <p className="text-[12px] text-zinc-600 dark:text-zinc-400 leading-normal">
             Switch between Juan (Husband) and Maria (Wife) to see how updates instantly reflect on both devices!
           </p>
           <div className="grid grid-cols-2 gap-2 mt-1">
@@ -172,8 +209,8 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
               onClick={() => setCurrentUser('u1')}
               className={`py-2 rounded-xl text-xs font-bold transition-all ${
                 currentUserId === 'u1'
-                  ? 'bg-zinc-100 text-zinc-950 font-black'
-                  : 'bg-zinc-900 border border-white/5 text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white font-black shadow-md'
+                  : 'bg-black/5 dark:bg-zinc-900 border border-black/10 dark:border-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
               Juan (Husband)
@@ -182,8 +219,8 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
               onClick={() => setCurrentUser('u2')}
               className={`py-2 rounded-xl text-xs font-bold transition-all ${
                 currentUserId === 'u2'
-                  ? 'bg-zinc-100 text-zinc-950 font-black'
-                  : 'bg-zinc-900 border border-white/5 text-zinc-400 hover:text-zinc-200'
+                  ? 'bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white font-black shadow-md'
+                  : 'bg-black/5 dark:bg-zinc-900 border border-black/10 dark:border-white/5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
               Maria (Wife)
@@ -194,30 +231,30 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
         {/* Profile Settings Form */}
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div className="flex items-center gap-2 pl-1">
-            <UserIcon size={15} className="text-zinc-500" />
-            <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">My Profile</h4>
+            <UserIcon size={15} className="text-zinc-500 dark:text-zinc-400" />
+            <h4 className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">My Profile</h4>
           </div>
 
           <div className="space-y-3">
             <div>
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 block mb-1">Full Name</label>
+              <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider pl-1 block mb-1">Full Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                className="w-full bg-black/5 dark:bg-zinc-900/50 border border-black/10 dark:border-white/5 rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="Name"
                 required
               />
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 block mb-1">Email Address</label>
+              <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider pl-1 block mb-1">Email Address</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                className="w-full bg-black/5 dark:bg-zinc-900/50 border border-black/10 dark:border-white/5 rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 placeholder="email@example.com"
                 required
               />
@@ -225,24 +262,24 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 block mb-1">Password</label>
+                <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider pl-1 block mb-1">Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                  className="w-full bg-black/5 dark:bg-zinc-900/50 border border-black/10 dark:border-white/5 rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                   placeholder="Password"
                   required
                 />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-1 block mb-1">Security PIN</label>
+                <label className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider pl-1 block mb-1">Security PIN</label>
                 <input
                   type="text"
                   maxLength={4}
                   value={pin}
                   onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-                  className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 font-bold text-sm text-center focus:outline-none focus:ring-2 focus:ring-zinc-700 tracking-widest"
+                  className="w-full bg-black/5 dark:bg-zinc-900/50 border border-black/10 dark:border-white/5 rounded-xl px-4 py-3 text-zinc-900 dark:text-zinc-100 font-bold text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500 tracking-widest"
                   placeholder="PIN"
                 />
               </div>
@@ -250,7 +287,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
           </div>
 
           {saveStatus && (
-            <div className="p-3 bg-zinc-900 border border-white/5 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-400">
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 size={14} />
               {saveStatus}
             </div>
@@ -258,30 +295,30 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-zinc-100 hover:bg-white text-zinc-950 font-black text-sm rounded-xl transition-all shadow-sm active:scale-[0.98]"
+            className="w-full py-3.5 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white font-black text-sm rounded-xl transition-all shadow-md active:scale-[0.98]"
           >
             Update Profile Information
           </button>
         </form>
 
         {/* Live Partner Sharing Settings */}
-        <div className="space-y-4 pt-4 border-t border-white/5">
+        <div className="space-y-4 pt-4 border-t border-black/10 dark:border-white/5">
           <div className="flex items-center gap-2 pl-1">
-            <Users size={15} className="text-zinc-500" />
-            <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">Connected Partners</h4>
+            <Users size={15} className="text-zinc-500 dark:text-zinc-400" />
+            <h4 className="text-[11px] font-black text-zinc-500 dark:text-zinc-400 uppercase tracking-widest">Connected Partners</h4>
           </div>
 
           <div className="space-y-3">
             {/* List of current members */}
             <div className="space-y-2">
               {householdMembers.map(member => (
-                <div key={member.id} className="flex justify-between items-center p-3 bg-zinc-900/40 rounded-xl border border-white/5">
+                <div key={member.id} className="flex justify-between items-center p-3 bg-black/5 dark:bg-zinc-900/40 rounded-xl border border-black/10 dark:border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-xs text-zinc-300 ring-1 ring-white/10">
+                    <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-600 dark:text-fuchsia-300 flex items-center justify-center font-bold text-xs ring-1 ring-purple-500/30">
                       {member.name.charAt(0)}
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-zinc-200">
+                      <p className="text-xs font-bold text-zinc-900 dark:text-zinc-200">
                         {member.name} {member.id === currentUserId && <span className="text-[10px] text-zinc-500 font-medium">(You)</span>}
                       </p>
                       <p className="text-[10px] text-zinc-500 font-medium">{member.email}</p>
@@ -290,7 +327,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
                   {member.id !== currentUserId && (
                     <button
                       onClick={() => handleDisconnectMember(member.id)}
-                      className="text-[10px] font-bold text-rose-400 hover:text-rose-300 px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-all"
+                      className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-all"
                     >
                       Disconnect
                     </button>
@@ -307,12 +344,12 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
                   value={partnerEmail}
                   onChange={e => setPartnerEmail(e.target.value)}
                   placeholder="Enter partner's email (e.g. maria@example.com)"
-                  className="flex-1 bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                  className="flex-1 bg-black/5 dark:bg-zinc-900/50 border border-black/10 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <button
                   type="submit"
                   disabled={!partnerEmail.trim()}
-                  className="px-4 bg-zinc-800 border border-white/5 hover:bg-zinc-700 text-zinc-200 disabled:opacity-30 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5"
+                  className="px-4 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white disabled:opacity-30 rounded-xl font-bold text-xs transition-colors flex items-center gap-1.5 shadow-md"
                 >
                   <UserPlus size={14} />
                   Connect
@@ -322,8 +359,8 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
               {partnerStatus && (
                 <div className={`p-3 border rounded-xl flex items-center gap-2 text-xs font-bold ${
                   partnerStatus.type === 'success'
-                    ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400'
-                    : 'bg-rose-950/20 border-rose-500/30 text-rose-400'
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
                 }`}>
                   {partnerStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
                   {partnerStatus.text}
@@ -363,7 +400,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
 
             <button
               onClick={() => signOut(auth)}
-              className="w-full py-3.5 bg-zinc-900 border border-white/5 hover:bg-zinc-800 text-zinc-300 font-bold text-sm rounded-xl transition-all shadow-sm active:scale-[0.98]"
+              className="w-full py-3.5 bg-black/5 dark:bg-zinc-900 border border-black/10 dark:border-white/5 hover:bg-black/10 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-sm rounded-xl transition-all shadow-sm active:scale-[0.98]"
             >
               Sign Out
             </button>

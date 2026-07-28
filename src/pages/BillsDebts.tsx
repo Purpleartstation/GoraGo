@@ -4,12 +4,16 @@ import { doc, getDoc, updateDoc, setDoc, query, where } from 'firebase/firestore
 import { db, collections } from '../db';
 import type { Bill, Debt, Account } from '../db';
 import { formatDistanceToNow, isPast } from 'date-fns';
+import { List, Calendar as CalendarIcon } from 'lucide-react';
 import { useAppStore } from '../store';
 import DebtDetailsSheet from '../components/DebtDetailsSheet';
 import BillDetailsSheet from '../components/BillDetailsSheet';
 import ConfirmModal from '../components/ConfirmModal';
+import BillsLoansCalendar from '../components/BillsLoansCalendar';
+import HelpTooltip from '../components/HelpTooltip';
 
 export default function BillsDebts() {
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [activeTab, setActiveTab] = useState<'bills' | 'loans'>('bills');
   const currentHouseholdId = useAppStore((state) => state.currentHouseholdId);
   const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
@@ -54,6 +58,12 @@ export default function BillsDebts() {
     const billSnap = await getDoc(doc(db, 'bills', billId));
     const bill = billSnap.data() as Bill | undefined;
     if (!bill) return;
+
+    if (bill.isVariableAmount || bill.variableAmountFlag) {
+      // For variable bills, open detail sheet so user can verify & enter actual statement amount
+      setSelectedBillId(billId);
+      return;
+    }
 
     const accountSnap = await getDoc(doc(db, 'accounts', bill.accountId));
     const account = accountSnap.data() as Account | undefined;
@@ -155,38 +165,79 @@ export default function BillsDebts() {
   };
 
   return (
-    <div className="p-4 space-y-6 pb-24 h-full overflow-y-auto no-scrollbar">
-      <header className="pt-1">
-        <p className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.15em] mb-0.5">Obligations</p>
-        <h1 className="text-2xl font-black text-zinc-100 tracking-tight">Bills & Loans</h1>
+    <div className="p-4 space-y-5 pb-32 h-full overflow-y-auto no-scrollbar">
+      <header className="pt-1 flex items-center justify-between">
+        <div>
+          <div className="flex items-center">
+            <p className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.15em]">Obligations</p>
+            <HelpTooltip
+              title="Obligations"
+              text="Manage recurring utility bills, subscriptions, and loan installment plans in list or calendar view."
+            />
+          </div>
+          <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Bills & Loans</h1>
+        </div>
+        <div className="flex bg-white/60 dark:bg-zinc-900/60 p-1 rounded-2xl border border-black/10 dark:border-white/10 backdrop-blur-xl">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+              viewMode === 'list'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            <List size={14} /> List
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            <CalendarIcon size={14} /> Calendar
+          </button>
+        </div>
       </header>
 
-      {/* Segmented Control */}
-      <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl ring-1 ring-white/5">
-        <button
-          onClick={() => setActiveTab('bills')}
-          className={`flex-1 py-2 text-sm font-bold rounded-xl capitalize transition-all duration-300 ${
-            activeTab === 'bills' 
-              ? 'bg-zinc-800 shadow-md text-zinc-100 ring-1 ring-white/10' 
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          Bills
-        </button>
-        <button
-          onClick={() => setActiveTab('loans')}
-          className={`flex-1 py-2 text-sm font-bold rounded-xl capitalize transition-all duration-300 ${
-            activeTab === 'loans' 
-              ? 'bg-zinc-800 shadow-md text-zinc-100 ring-1 ring-white/10' 
-              : 'text-zinc-500 hover:text-zinc-300'
-          }`}
-        >
-          Loans
-        </button>
-      </div>
+      {viewMode === 'calendar' ? (
+        <BillsLoansCalendar
+          bills={bills || []}
+          debts={debts || []}
+          onSelectBill={setSelectedBillId}
+          onSelectDebt={setSelectedDebtId}
+          onPayBill={handlePayBill}
+          onPayLoan={handlePayLoan}
+        />
+      ) : (
+        <>
+          {/* Segmented Control */}
+          <div className="flex bg-white/60 dark:bg-zinc-900/40 p-1.5 rounded-2xl border border-black/10 dark:border-white/10 backdrop-blur-xl">
+            <button
+              onClick={() => setActiveTab('bills')}
+              className={`flex-1 py-2 text-sm font-black rounded-xl capitalize transition-all duration-300 ${
+                activeTab === 'bills' 
+                  ? 'bg-purple-500/15 dark:bg-white/10 shadow-md text-purple-700 dark:text-zinc-100 border border-purple-500/30 dark:border-white/10' 
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              Bills
+            </button>
+            <button
+              onClick={() => setActiveTab('loans')}
+              className={`flex-1 py-2 text-sm font-black rounded-xl capitalize transition-all duration-300 ${
+                activeTab === 'loans' 
+                  ? 'bg-purple-500/15 dark:bg-white/10 shadow-md text-purple-700 dark:text-zinc-100 border border-purple-500/30 dark:border-white/10' 
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+              }`}
+            >
+              Loans
+            </button>
+          </div>
 
       {/* Content */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {activeTab === 'bills' && bills?.map(bill => {
           const isPaid = bill.status === 'paid';
           const isMonthly = !bill.dueType || bill.dueType === 'monthly';
@@ -196,9 +247,12 @@ export default function BillsDebts() {
             dueLabel = 'Paid this cycle';
           } else if (isMonthly) {
             const due = new Date();
-            due.setDate(bill.dueDay);
+            const lastDayThisMonth = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate();
+            due.setDate(Math.min(bill.dueDay, lastDayThisMonth));
             if (isPast(due) && due.getDate() !== new Date().getDate()) {
               due.setMonth(due.getMonth() + 1);
+              const lastDayNextMonth = new Date(due.getFullYear(), due.getMonth() + 1, 0).getDate();
+              due.setDate(Math.min(bill.dueDay, lastDayNextMonth));
             }
             dueLabel = `Due ${formatDistanceToNow(due, { addSuffix: true })}`;
           } else {
@@ -219,48 +273,67 @@ export default function BillsDebts() {
             <div
               key={bill.id}
               onClick={() => setSelectedBillId(bill.id)}
-              className="p-4 bg-zinc-900/60 rounded-2xl ring-1 ring-white/5 relative overflow-hidden active:scale-[0.99] transition-all duration-150 cursor-pointer"
+              className="p-4 bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-md relative overflow-hidden active:scale-[0.99] transition-all cursor-pointer space-y-3"
             >
-              <div className="flex items-start justify-between relative z-10">
-                <div className="flex-1 mr-2 min-w-0">
-                  <p className="font-bold text-zinc-100 text-base leading-tight truncate">{bill.name}</p>
-                  <p className={`text-xs font-bold mt-0.5 truncate ${
-                    isPaid ? 'text-emerald-500' : bill.status === 'overdue' ? 'text-rose-500' : 'text-zinc-400'
+              <div className="flex items-start justify-between gap-3 relative z-10">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-bold text-zinc-900 dark:text-zinc-100 text-base leading-tight truncate">{bill.name}</p>
+                    {(bill.isVariableAmount || bill.variableAmountFlag) && (
+                      <span className="shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 uppercase tracking-wider flex items-center">
+                        Variable
+                        <HelpTooltip
+                          title="Variable Bill"
+                          text="Amount fluctuates each month (e.g., Meralco electricity, water meter). You can confirm the exact statement amount before paying."
+                        />
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs font-bold mt-1 truncate ${
+                    isPaid ? 'text-emerald-600 dark:text-emerald-400' : bill.status === 'overdue' ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500 dark:text-zinc-400'
                   }`}>
                     {dueLabel}
                   </p>
-                  <p className={`text-[10px] font-bold mt-1.5 uppercase tracking-wider ${
-                    isMonthly ? 'text-amber-500/70' : 'text-indigo-500/70'
-                  }`}>
-                    {recurrenceLabel}
-                  </p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="font-black text-lg text-zinc-100 tabular-nums">
-                    <span className="text-[10px] font-bold opacity-60 mr-0.5">₱</span>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-lg text-zinc-900 dark:text-zinc-100 tabular-nums">
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mr-0.5">₱</span>
                     {bill.amount.toLocaleString()}
                   </p>
-                  {!isPaid ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); handlePayBill(bill.id); }}
-                      className="text-[10px] uppercase tracking-wider font-black text-zinc-900 bg-zinc-200 px-3 py-1.5 rounded-full mt-2 active:scale-95 transition-transform"
-                    >
-                      Pay Now
-                    </button>
-                  ) : (
-                    <span className="text-[10px] uppercase tracking-wider font-black text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-full mt-2 inline-block">
-                      Paid
-                    </span>
-                  )}
                 </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-black/10 dark:border-white/10 relative z-10">
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                  isMonthly ? 'text-amber-700 dark:text-amber-400/80' : 'text-indigo-700 dark:text-indigo-400/80'
+                }`}>
+                  {recurrenceLabel}
+                </span>
+
+                {!isPaid ? (
+                  <button
+                    onClick={e => { e.stopPropagation(); handlePayBill(bill.id); }}
+                    className={`whitespace-nowrap shrink-0 text-[10px] uppercase tracking-wider font-black px-3.5 py-1.5 rounded-full active:scale-95 transition-transform ${
+                      bill.isVariableAmount || bill.variableAmountFlag
+                        ? 'text-amber-950 bg-amber-400 hover:bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.3)]'
+                        : 'text-white bg-purple-600 hover:bg-purple-500 dark:text-zinc-950 dark:bg-zinc-100 dark:hover:bg-white'
+                    }`}
+                  >
+                    {bill.isVariableAmount || bill.variableAmountFlag ? 'Verify & Pay' : 'Pay Now'}
+                  </button>
+                ) : (
+                  <span className="whitespace-nowrap shrink-0 text-[10px] uppercase tracking-wider font-black text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-3 py-1.5 rounded-full inline-block">
+                    Paid
+                  </span>
+                )}
               </div>
             </div>
           );
         })}
 
         {activeTab === 'bills' && bills?.length === 0 && (
-          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 rounded-[2rem] ring-1 ring-white/5 border-dashed border-zinc-800">
-            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center ring-1 ring-white/5">
+          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 backdrop-blur-xl rounded-3xl border border-dashed border-white/10">
+            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center border border-white/10">
               <i className="lucide lucide-file-text text-2xl text-zinc-400"></i>
             </div>
             <p className="font-bold tracking-wide">No bills added yet.</p>
@@ -273,57 +346,65 @@ export default function BillsDebts() {
             <div 
               key={debt.id} 
               onClick={() => setSelectedDebtId(debt.id)}
-              className="p-4 bg-zinc-900/60 rounded-2xl ring-1 ring-white/5 space-y-3 active:scale-[0.99] transition-all duration-150 cursor-pointer"
+              className="p-4 bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-md space-y-3 active:scale-[0.99] transition-all cursor-pointer"
             >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0 mr-2">
-                  <p className="font-bold text-zinc-100 text-base truncate">{debt.name}</p>
-                  <p className="text-[11px] font-bold text-zinc-500 mt-0.5 truncate">LENDER <span className="text-zinc-300">{debt.lender}</span></p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-zinc-900 dark:text-zinc-100 text-base truncate">{debt.name}</p>
+                  <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                    LENDER <span className="text-zinc-800 dark:text-zinc-200">{debt.lender}</span>
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-black text-lg text-zinc-100 tabular-nums">
-                    <span className="text-[10px] font-bold opacity-60 mr-0.5">₱</span>
+                  <p className="font-black text-lg text-zinc-900 dark:text-zinc-100 tabular-nums">
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mr-0.5">₱</span>
                     {debt.remainingBalance.toLocaleString()}
                   </p>
-                  {debt.remainingBalance > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePayLoan(debt.id);
-                      }}
-                      className="text-[10px] uppercase tracking-wider font-black text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-full mt-2 active:scale-95 transition-transform"
-                    >
-                      Pay ₱{Math.min(debt.installmentAmount, debt.remainingBalance).toLocaleString()}
-                    </button>
-                  )}
                 </div>
               </div>
               
               {/* Progress Bar */}
               <div>
-                <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mb-1.5">
+                <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800/80 rounded-full overflow-hidden mb-1 border border-black/5 dark:border-white/5">
                   <div 
-                    className="h-full bg-indigo-500 rounded-full" 
+                    className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-full" 
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <p className="text-[10px] font-bold text-zinc-500 text-right tracking-wider">
-                  <span className="text-zinc-300">{progress.toFixed(0)}%</span> PAID
-                </p>
+                <div className="flex items-center justify-between text-[10px] font-bold text-zinc-500 dark:text-zinc-400 tracking-wider">
+                  <span><strong className="text-zinc-800 dark:text-zinc-200">{progress.toFixed(0)}%</strong> PAID</span>
+                  <span>INSTALLMENT: <strong className="text-zinc-800 dark:text-zinc-200">₱{Math.min(debt.installmentAmount, debt.remainingBalance).toLocaleString()}</strong></span>
+                </div>
               </div>
+
+              {debt.remainingBalance > 0 && (
+                <div className="flex justify-end pt-2 border-t border-black/10 dark:border-white/10">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePayLoan(debt.id);
+                    }}
+                    className="whitespace-nowrap text-[10px] uppercase tracking-wider font-black text-indigo-700 bg-indigo-50 border border-indigo-200 dark:text-indigo-300 dark:bg-indigo-500/20 dark:border-indigo-500/30 px-3.5 py-1.5 rounded-full active:scale-95 transition-transform hover:bg-indigo-100 dark:hover:bg-indigo-500/30 shadow-sm"
+                  >
+                    Pay ₱{Math.min(debt.installmentAmount, debt.remainingBalance).toLocaleString()}
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
 
         {activeTab === 'loans' && debts?.length === 0 && (
-          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 rounded-[2rem] ring-1 ring-white/5 border-dashed border-zinc-800">
-            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center ring-1 ring-white/5">
+          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 backdrop-blur-xl rounded-3xl border border-dashed border-white/10">
+            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center border border-white/10">
               <i className="lucide lucide-credit-card text-2xl text-zinc-400"></i>
             </div>
             <p className="font-bold tracking-wide">No loans added yet.</p>
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* Loan Detail Sheet */}
       <DebtDetailsSheet 
@@ -352,3 +433,4 @@ export default function BillsDebts() {
     </div>
   );
 }
+

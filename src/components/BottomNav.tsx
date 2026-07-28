@@ -15,23 +15,19 @@ export default function BottomNav() {
   ];
 
   return (
-    <div className="fixed bottom-safe-bottom left-4 right-4 z-40 mb-4">
-      <nav className="flex justify-around items-center h-[72px] px-2 bg-zinc-900/80 backdrop-blur-2xl border border-zinc-800/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.4)]">
+    <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] z-30">
+      <nav className="flex justify-around items-center h-[64px] px-3 bg-white/60 dark:bg-zinc-900/40 backdrop-blur-2xl border border-white/40 dark:border-white/10 rounded-full shadow-lg dark:shadow-[0_15px_35px_rgba(0,0,0,0.6)] text-zinc-800 dark:text-zinc-100 transition-colors duration-300">
         {navItems.map((item) => {
           if (item.isFab) {
             return (
-              <div key="fab" className="flex flex-col items-center justify-center w-16 relative">
-                <button
-                  className="absolute -top-7 w-14 h-14 bg-zinc-100 text-zinc-900 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.15)] hover:scale-105 active:scale-95 transition-all duration-300 ring-4 ring-background-dark"
-                  onClick={() => toggleAddMenu(true)}
-                  aria-label="Add new entry"
-                >
-                  <item.icon size={28} strokeWidth={2.5} />
-                </button>
-                <span className="text-[10px] font-bold text-zinc-400 mt-[28px]">
-                  Add
-                </span>
-              </div>
+              <button
+                key="fab"
+                onClick={() => toggleAddMenu(true)}
+                aria-label="Add entry"
+                className="w-12 h-12 bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(217,70,239,0.4)] hover:scale-105 active:scale-95 transition-all duration-200 shrink-0"
+              >
+                <item.icon size={26} strokeWidth={2.8} />
+              </button>
             );
           }
 
@@ -39,17 +35,24 @@ export default function BottomNav() {
             <NavLink
               key={item.to}
               to={item.to}
+              aria-label={item.label}
               className={({ isActive }) =>
                 clsx(
-                  'flex flex-col items-center justify-center w-14 h-full gap-1 transition-all duration-300',
+                  'relative flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200',
                   isActive
-                    ? 'text-zinc-100 scale-110'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    ? 'text-purple-600 dark:text-fuchsia-400 scale-110 bg-purple-500/15 dark:bg-fuchsia-500/20 shadow-[0_0_15px_rgba(217,70,239,0.25)]'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-black/5 dark:hover:bg-white/5'
                 )
               }
             >
-              <item.icon size={22} strokeWidth={2} />
-              <span className="text-[9px] font-bold tracking-wide">{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                  {isActive && (
+                    <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-purple-600 dark:bg-fuchsia-400 shadow-[0_0_8px_rgba(217,70,239,0.8)]" />
+                  )}
+                </>
+              )}
             </NavLink>
           );
         })}
@@ -57,3 +60,4 @@ export default function BottomNav() {
     </div>
   );
 }
+

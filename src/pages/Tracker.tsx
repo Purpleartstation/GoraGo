@@ -1,17 +1,20 @@
 import { useState, useMemo } from 'react';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
-import { query, orderBy, where } from 'firebase/firestore';
+import { query, where } from 'firebase/firestore';
 import { collections } from '../db';
 import type { Transaction, Category, Account } from '../db';
 import { formatDistanceToNow, isAfter, isBefore, subDays, startOfMonth, startOfYear, format } from 'date-fns';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft, List, Calendar as CalendarIcon } from 'lucide-react';
 import { useAppStore } from '../store';
 import TransactionDetailsSheet from '../components/TransactionDetailsSheet';
+import TrackerCalendar from '../components/TrackerCalendar';
+import HelpTooltip from '../components/HelpTooltip';
 
 type DateFilter = 'all' | '7d' | 'month' | 'year' | 'custom';
 type CustomMode = 'range' | 'days';
 
 export default function Tracker() {
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
@@ -25,15 +28,26 @@ export default function Tracker() {
 
   const currentHouseholdId = useAppStore(state => state.currentHouseholdId);
 
-  const [allTransactions] = useCollectionData<Transaction>(
-    currentHouseholdId ? query(collections.transactions, where('householdId', '==', currentHouseholdId), orderBy('date', 'desc')) : null
-  );
-  const [categories] = useCollectionData<Category>(
-    currentHouseholdId ? query(collections.categories, where('householdId', '==', currentHouseholdId)) : null
-  );
-  const [accounts] = useCollectionData<Account>(
-    currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null
-  );
+  const txQuery = useMemo(() => {
+    return currentHouseholdId ? query(collections.transactions, where('householdId', '==', currentHouseholdId)) : null;
+  }, [currentHouseholdId]);
+
+  const catQuery = useMemo(() => {
+    return currentHouseholdId ? query(collections.categories, where('householdId', '==', currentHouseholdId)) : null;
+  }, [currentHouseholdId]);
+
+  const accQuery = useMemo(() => {
+    return currentHouseholdId ? query(collections.accounts, where('householdId', '==', currentHouseholdId)) : null;
+  }, [currentHouseholdId]);
+
+  const [allRawTransactions] = useCollectionData<Transaction>(txQuery);
+  const [categories] = useCollectionData<Category>(catQuery);
+  const [accounts] = useCollectionData<Account>(accQuery);
+
+  const allTransactions = useMemo(() => {
+    if (!allRawTransactions) return [];
+    return [...allRawTransactions].sort((a, b) => (b.date || 0) - (a.date || 0));
+  }, [allRawTransactions]);
 
   const getCategory = (id?: string) => categories?.find(c => c.id === id);
   const getAccount = (id: string) => accounts?.find(a => a.id === id);
@@ -76,23 +90,62 @@ export default function Tracker() {
 
   return (
     <div className="p-4 space-y-5 pb-32 h-full overflow-y-auto no-scrollbar">
-      <header className="pt-1">
-        <p className="text-[11px] font-black text-zinc-600 uppercase tracking-[0.15em] mb-0.5">Activity</p>
-        <h1 className="text-2xl font-black text-zinc-100 tracking-tight">Tracker</h1>
+      <header className="pt-1 flex items-center justify-between">
+        <div>
+          <div className="flex items-center">
+            <p className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.15em]">Activity</p>
+            <HelpTooltip
+              title="Transaction Tracker"
+              text="View, filter, and sum up income, expenses, and transfers across custom timeframes or calendar view."
+            />
+          </div>
+          <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Tracker</h1>
+        </div>
+        <div className="flex bg-white/60 dark:bg-zinc-900/60 p-1 rounded-2xl border border-black/10 dark:border-white/10 backdrop-blur-xl">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+              viewMode === 'list'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            <List size={14} /> List
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+              viewMode === 'calendar'
+                ? 'bg-purple-600 text-white shadow-md'
+                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+            }`}
+          >
+            <CalendarIcon size={14} /> Calendar
+          </button>
+        </div>
       </header>
 
-      {/* Advanced Filters */}
+      {viewMode === 'calendar' ? (
+        <TrackerCalendar
+          transactions={allTransactions}
+          categories={categories || []}
+          accounts={accounts || []}
+          onSelectTransaction={setSelectedTxId}
+        />
+      ) : (
+        <>
+          {/* Advanced Filters */}
       <div className="space-y-3">
         {/* Type Tabs */}
-        <div className="flex bg-zinc-900/50 p-1.5 rounded-2xl ring-1 ring-white/5">
+        <div className="flex bg-white/60 dark:bg-zinc-900/40 p-1.5 rounded-2xl border border-black/10 dark:border-white/10 backdrop-blur-xl">
           {(['all', 'income', 'expense', 'transfer'] as const).map(f => (
             <button
               key={f}
               onClick={() => setTypeFilter(f)}
-              className={`flex-1 py-2 text-sm font-bold rounded-xl capitalize transition-all duration-300 ${
+              className={`flex-1 py-2 text-xs font-black rounded-xl capitalize transition-all duration-200 ${
                 typeFilter === f
-                  ? 'bg-zinc-800 shadow-md text-zinc-100 ring-1 ring-white/10'
-                  : 'text-zinc-500 hover:text-zinc-300'
+                  ? 'bg-purple-500/15 dark:bg-white/10 shadow-md text-purple-700 dark:text-zinc-100 border border-purple-500/30 dark:border-white/10'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
               }`}
             >
               {f}
@@ -105,11 +158,11 @@ export default function Tracker() {
           <select
             value={selectedCategoryId}
             onChange={e => setSelectedCategoryId(e.target.value)}
-            className="flex-1 bg-zinc-900/50 border-0 ring-1 ring-white/5 rounded-2xl px-4 py-3 text-sm font-bold text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-600 appearance-none"
+            className="flex-1 bg-white/70 dark:bg-zinc-900/40 border border-black/10 dark:border-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 text-xs font-black text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none cursor-pointer"
           >
-            <option value="all">All Categories</option>
+            <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">All Categories</option>
             {categories?.filter(c => typeFilter === 'all' || c.type === typeFilter).map(cat => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
+              <option key={cat.id} value={cat.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">{cat.name}</option>
             ))}
           </select>
 
@@ -117,33 +170,33 @@ export default function Tracker() {
           <select
             value={dateFilter}
             onChange={e => setDateFilter(e.target.value as DateFilter)}
-            className="flex-1 bg-zinc-900/50 border-0 ring-1 ring-white/5 rounded-2xl px-4 py-3 text-sm font-bold text-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-600 appearance-none"
+            className="flex-1 bg-white/70 dark:bg-zinc-900/40 border border-black/10 dark:border-white/10 backdrop-blur-xl rounded-2xl px-4 py-3 text-xs font-black text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none cursor-pointer"
           >
-            <option value="all">All Time</option>
-            <option value="7d">Last 7 Days</option>
-            <option value="month">This Month</option>
-            <option value="year">This Year</option>
-            <option value="custom">Custom…</option>
+            <option value="all" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">All Time</option>
+            <option value="7d" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">Last 7 Days</option>
+            <option value="month" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">This Month</option>
+            <option value="year" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">This Year</option>
+            <option value="custom" className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">Custom…</option>
           </select>
         </div>
 
         {/* Custom Date Panel — slides in when "Custom" is selected */}
         {dateFilter === 'custom' && (
-          <div className="bg-zinc-900/60 ring-1 ring-white/5 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="bg-zinc-900/40 border border-white/10 backdrop-blur-xl rounded-3xl p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
             {/* Mode toggle */}
-            <div className="flex bg-zinc-800/60 p-1 rounded-xl ring-1 ring-white/5">
+            <div className="flex bg-black/30 p-1 rounded-2xl border border-white/5">
               <button
                 onClick={() => setCustomMode('range')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
-                  customMode === 'range' ? 'bg-zinc-700 text-zinc-100 ring-1 ring-white/10' : 'text-zinc-500 hover:text-zinc-300'
+                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
+                  customMode === 'range' ? 'bg-white/10 text-zinc-100 border border-white/10' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
                 📅 Date Range
               </button>
               <button
                 onClick={() => setCustomMode('days')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
-                  customMode === 'days' ? 'bg-zinc-700 text-zinc-100 ring-1 ring-white/10' : 'text-zinc-500 hover:text-zinc-300'
+                className={`flex-1 py-1.5 text-xs font-bold rounded-xl transition-all duration-200 ${
+                  customMode === 'days' ? 'bg-white/10 text-zinc-100 border border-white/10' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
                 🔢 Last N Days
@@ -153,30 +206,30 @@ export default function Tracker() {
             {customMode === 'range' ? (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">From</label>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block mb-1.5">From</label>
                   <input
                     type="date"
                     value={customFrom}
                     max={customTo || todayStr}
                     onChange={e => setCustomFrom(e.target.value)}
-                    className="w-full bg-zinc-800/60 ring-1 ring-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 [color-scheme:dark]"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 [color-scheme:dark]"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">To</label>
+                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block mb-1.5">To</label>
                   <input
                     type="date"
                     value={customTo}
                     min={customFrom}
                     max={todayStr}
                     onChange={e => setCustomTo(e.target.value)}
-                    className="w-full bg-zinc-800/60 ring-1 ring-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 [color-scheme:dark]"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 [color-scheme:dark]"
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1.5">Number of days back</label>
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-wider block mb-1.5">Number of days back</label>
                 <div className="relative">
                   <input
                     type="number"
@@ -185,13 +238,13 @@ export default function Tracker() {
                     value={customDays}
                     onChange={e => setCustomDays(e.target.value)}
                     placeholder="e.g. 30"
-                    className="w-full bg-zinc-800/60 ring-1 ring-white/10 rounded-xl px-3 py-2.5 text-sm font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-zinc-500 placeholder:text-zinc-600 pr-16"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-zinc-200 focus:outline-none focus:ring-2 focus:ring-amber-400 placeholder:text-zinc-600 pr-16"
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-zinc-500">days</span>
                 </div>
                 {customDays && parseInt(customDays) > 0 && (
-                  <p className="text-[11px] text-zinc-500 mt-1.5 pl-1">
-                    Showing from <span className="text-zinc-300 font-bold">{format(subDays(new Date(), parseInt(customDays)), 'MMM d, yyyy')}</span> to today
+                  <p className="text-[11px] text-zinc-400 mt-1.5 pl-1">
+                    Showing from <span className="text-zinc-200 font-bold">{format(subDays(new Date(), parseInt(customDays)), 'MMM d, yyyy')}</span> to today
                   </p>
                 )}
               </div>
@@ -202,15 +255,15 @@ export default function Tracker() {
       
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-zinc-900/40 p-5 rounded-[2rem] ring-1 ring-white/5 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl"></div>
-          <p className="text-xs font-bold text-emerald-500/70 mb-2 uppercase tracking-wider relative z-10">Total Income</p>
-          <p className="text-2xl font-black text-emerald-400 relative z-10 tracking-tight">₱ {totalIncome.toLocaleString()}</p>
+        <div className="bg-white/70 dark:bg-zinc-900/40 p-5 rounded-3xl border border-black/10 dark:border-white/10 backdrop-blur-xl relative overflow-hidden shadow-md">
+          <div className="absolute -right-4 -top-4 w-20 h-20 bg-emerald-500/15 rounded-full blur-xl pointer-events-none"></div>
+          <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 mb-2 uppercase tracking-wider relative z-10">Total Income</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 relative z-10 tracking-tight">₱ {totalIncome.toLocaleString()}</p>
         </div>
-        <div className="bg-zinc-900/40 p-5 rounded-[2rem] ring-1 ring-white/5 backdrop-blur-sm relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/10 rounded-full blur-xl"></div>
-          <p className="text-xs font-bold text-rose-500/70 mb-2 uppercase tracking-wider relative z-10">Total Expense</p>
-          <p className="text-2xl font-black text-rose-400 relative z-10 tracking-tight">₱ {totalExpense.toLocaleString()}</p>
+        <div className="bg-white/70 dark:bg-zinc-900/40 p-5 rounded-3xl border border-black/10 dark:border-white/10 backdrop-blur-xl relative overflow-hidden shadow-md">
+          <div className="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/15 rounded-full blur-xl pointer-events-none"></div>
+          <p className="text-xs font-black text-rose-600 dark:text-rose-400 mb-2 uppercase tracking-wider relative z-10">Total Expense</p>
+          <p className="text-2xl font-black text-rose-600 dark:text-rose-400 relative z-10 tracking-tight">₱ {totalExpense.toLocaleString()}</p>
         </div>
       </div>
 
@@ -226,8 +279,8 @@ export default function Tracker() {
           const cleanNote = tx.note?.replace(/\s*\((In|Out)\)$/i, '') || cat?.name || 'Transaction';
 
           const amountColor = isTransfer
-            ? 'text-zinc-300'
-            : (isIncome ? 'text-emerald-400' : 'text-zinc-100');
+            ? 'text-zinc-600 dark:text-zinc-300'
+            : (isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-900 dark:text-zinc-100');
 
           const amountPrefix = isTransfer
             ? '⇄ '
@@ -237,18 +290,18 @@ export default function Tracker() {
             <div 
               key={tx.id} 
               onClick={() => setSelectedTxId(tx.id)}
-              className="p-4 bg-zinc-900/60 backdrop-blur-md rounded-2xl ring-1 ring-white/5 flex items-center gap-3 hover:bg-zinc-800/60 hover:ring-white/10 active:scale-[0.99] transition-all duration-200 cursor-pointer"
+              className="p-4 bg-white/70 dark:bg-zinc-900/40 backdrop-blur-xl rounded-3xl border border-black/10 dark:border-white/10 shadow-md flex items-center gap-3 hover:bg-black/5 dark:hover:bg-white/5 active:scale-[0.99] transition-all cursor-pointer"
             >
               {/* Icon */}
               <div 
-                className="w-11 h-11 shrink-0 rounded-xl flex items-center justify-center text-base font-black shadow-inner ring-1 ring-white/10"
+                className="w-11 h-11 shrink-0 rounded-2xl flex items-center justify-center text-base font-black border border-black/10 dark:border-white/10 shadow-sm"
                 style={{ 
                   background: cat?.color 
-                    ? `linear-gradient(135deg, ${cat.color}25, ${cat.color}45)` 
+                    ? `linear-gradient(135deg, ${cat.color}30, ${cat.color}60)` 
                     : isTransfer
-                    ? 'linear-gradient(135deg, #3730a320, #4338ca40)'
-                    : 'linear-gradient(135deg, #27272a, #3f3f46)', 
-                  color: cat?.color || (isTransfer ? '#818cf8' : '#a1a1aa') 
+                    ? 'linear-gradient(135deg, #3730a330, #4338ca60)'
+                    : 'linear-gradient(135deg, #e4e4e7, #d4d4d8)', 
+                  color: cat?.color || (isTransfer ? '#6366f1' : '#52525b') 
                 }}
               >
                 {isTransfer ? <ArrowRightLeft size={16} /> : (cat?.name ? cat.name.charAt(0).toUpperCase() : 'T')}
@@ -256,18 +309,18 @@ export default function Tracker() {
 
               {/* Middle: name + meta — takes remaining space, truncates */}
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-zinc-100 text-sm leading-tight truncate">{cleanNote}</p>
+                <p className="font-bold text-zinc-900 dark:text-zinc-100 text-sm leading-tight truncate">{cleanNote}</p>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium mt-1 overflow-hidden">
                   <span 
-                    className="px-1.5 py-0.5 rounded-md shrink-0 max-w-[90px] truncate"
-                    style={{ backgroundColor: cat?.color ? `${cat.color}20` : '#27272a', color: cat?.color || (isTransfer ? '#818cf8' : '#71717a') }}
+                    className="px-1.5 py-0.5 rounded-md shrink-0 max-w-[90px] truncate font-bold"
+                    style={{ backgroundColor: cat?.color ? `${cat.color}20` : '#f4f4f5', color: cat?.color || (isTransfer ? '#6366f1' : '#71717a') }}
                   >
                     {cat?.name || (isTransfer ? 'Transfer' : 'Uncategorized')}
                   </span>
-                  <span className="text-zinc-600">•</span>
-                  <span className="text-zinc-500 truncate shrink">{acc?.name}</span>
-                  <span className="text-zinc-600 shrink-0">•</span>
-                  <span className="text-zinc-600 shrink-0 whitespace-nowrap">{formatDistanceToNow(tx.date, { addSuffix: true })}</span>
+                  <span className="text-zinc-400 dark:text-zinc-600">•</span>
+                  <span className="text-zinc-600 dark:text-zinc-400 truncate shrink">{acc?.name}</span>
+                  <span className="text-zinc-400 dark:text-zinc-600 shrink-0">•</span>
+                  <span className="text-zinc-500 shrink-0 whitespace-nowrap">{formatDistanceToNow(tx.date, { addSuffix: true })}</span>
                 </div>
               </div>
 
@@ -280,14 +333,16 @@ export default function Tracker() {
         })}
         
         {filteredTransactions?.length === 0 && (
-          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 rounded-[2rem] ring-1 ring-white/5 border-dashed border-zinc-800">
-            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center ring-1 ring-white/5">
+          <div className="p-10 flex flex-col items-center justify-center text-zinc-500 bg-zinc-900/30 backdrop-blur-xl rounded-3xl border border-dashed border-white/10">
+            <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800/50 flex items-center justify-center border border-white/10">
               <i className="lucide lucide-inbox text-2xl text-zinc-400"></i>
             </div>
             <p className="font-bold tracking-wide">No transactions found</p>
           </div>
         )}
       </div>
+        </>
+      )}
 
       <TransactionDetailsSheet 
         transactionId={selectedTxId}
@@ -297,3 +352,4 @@ export default function Tracker() {
     </div>
   );
 }
+

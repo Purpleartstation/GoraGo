@@ -82,6 +82,8 @@ export interface Bill {
   dueType?: 'monthly' | 'specific'; // monthly = auto-recur on same day, specific = custom list of dates
   specificDates?: number[]; // list of timestamps; used when dueType === 'specific'
   status: BillStatus;
+  isVariableAmount?: boolean;
+  variableAmountFlag?: boolean;
   recurringRuleId?: string;
   lastPaidDate?: number;
   timesRecurred?: number;

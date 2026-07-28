@@ -29,7 +29,7 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
     const instAmt = parseFloat(installmentAmount);
     const due = parseInt(dueDay, 10);
 
-    if (isNaN(origAmt) || isNaN(remBal) || isNaN(rate) || isNaN(instAmt) || isNaN(due)) return;
+    if (isNaN(origAmt) || isNaN(remBal) || isNaN(rate) || isNaN(instAmt) || isNaN(due) || due < 1 || due > 31) return;
 
     const debtId = `debt_${Date.now()}`;
     await setDoc(doc(db, 'debts', debtId), {
@@ -139,14 +139,15 @@ export default function DebtSheet({ isOpen, onClose }: DebtSheetProps) {
         {/* Due Day & Payoff Strategy */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Due Day (1–28)</label>
+            <label className="text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block">Due Day</label>
             <input 
               type="number" 
               min="1"
-              max="28"
+              max="31"
               value={dueDay}
               onChange={(e) => setDueDay(e.target.value)}
               className="w-full bg-zinc-900/50 border border-white/5 rounded-xl px-4 py-3 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600 font-bold placeholder:text-zinc-600 placeholder:font-medium"
+              placeholder="1 - 31"
             />
           </div>
 
