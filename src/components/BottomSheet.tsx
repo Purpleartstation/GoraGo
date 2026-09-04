@@ -1,7 +1,8 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from '../utils/scrollLock';
+import { useAppStore } from '../store';
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -13,6 +14,18 @@ interface BottomSheetProps {
 export default function BottomSheet({ isOpen, onClose, title, children }: BottomSheetProps) {
   // Lock background scrolling on iOS Safari & Standalone PWA when open
   useBodyScrollLock(isOpen);
+
+  const incrementOpenSheets = useAppStore((state) => state.incrementOpenSheets);
+  const decrementOpenSheets = useAppStore((state) => state.decrementOpenSheets);
+
+  useEffect(() => {
+    if (isOpen) {
+      incrementOpenSheets();
+      return () => {
+        decrementOpenSheets();
+      };
+    }
+  }, [isOpen, incrementOpenSheets, decrementOpenSheets]);
 
   return (
     <AnimatePresence>
@@ -68,7 +81,7 @@ export default function BottomSheet({ isOpen, onClose, title, children }: Bottom
               </div>
 
               {/* Scrollable Content with Native iOS Momentum Scrolling */}
-              <div className="p-5 sm:p-6 overflow-y-auto no-scrollbar pb-[calc(40px+env(safe-area-inset-bottom,20px))] flex-1 -webkit-overflow-scrolling-touch overscroll-y-contain">
+              <div className="p-5 sm:p-6 overflow-y-auto no-scrollbar pb-24 pb-[calc(6rem+env(safe-area-inset-bottom,24px))] flex-1 -webkit-overflow-scrolling-touch overscroll-y-contain">
                 {children}
               </div>
             </motion.div>

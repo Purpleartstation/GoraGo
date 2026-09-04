@@ -11,6 +11,10 @@ export default function BottomNav() {
   const toggleAddMenu = useAppStore((state) => state.toggleAddMenu);
   const isGoraAiOpen = useAppStore((state) => state.isGoraAiOpen);
   const setGoraAiOpen = useAppStore((state) => state.setGoraAiOpen);
+  const openSheetsCount = useAppStore((state) => state.openSheetsCount);
+  const isAddMenuOpen = useAppStore((state) => state.isAddMenuOpen);
+
+  const isHideCfoButton = openSheetsCount > 0 || isAddMenuOpen;
 
   const navItems = [
     { to: '/', icon: Home, label: t('nav.home', 'Home') },
@@ -51,6 +55,7 @@ export default function BottomNav() {
                 type="button"
                 key="gora-ai"
                 onClick={() => {
+                  if (isHideCfoButton) return;
                   triggerHaptic('light');
                   playSound('pop');
                   setGoraAiOpen(!isGoraAiOpen);
@@ -58,10 +63,12 @@ export default function BottomNav() {
                 aria-label="GoraGo CFO Assistant"
                 title="GoraGo CFO Assistant"
                 className={clsx(
-                  'relative flex items-center justify-center w-11 h-11 rounded-full transition-transform duration-100 active:scale-90 cursor-pointer shrink-0 touch-manipulation will-change-transform',
-                  isGoraAiOpen
-                    ? 'text-white scale-105 bg-gradient-to-tr from-purple-600 to-fuchsia-500 shadow-md shadow-purple-500/30 border border-white/40'
-                    : 'text-purple-600 dark:text-fuchsia-400 hover:scale-105 hover:bg-white/60 dark:hover:bg-white/10'
+                  'relative flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200 active:scale-90 cursor-pointer shrink-0 touch-manipulation will-change-transform',
+                  isHideCfoButton
+                    ? 'opacity-0 scale-90 pointer-events-none'
+                    : isGoraAiOpen
+                      ? 'text-white scale-105 bg-gradient-to-tr from-purple-600 to-fuchsia-500 shadow-md shadow-purple-500/30 border border-white/40 opacity-100 scale-100'
+                      : 'text-purple-600 dark:text-fuchsia-400 hover:scale-105 hover:bg-white/60 dark:hover:bg-white/10 opacity-100 scale-100'
                 )}
               >
                 <item.icon size={20} strokeWidth={2.4} />

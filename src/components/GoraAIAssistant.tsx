@@ -35,6 +35,10 @@ export default function GoraAIAssistant() {
   const messages = useAppStore((state) => state.aiChatHistory);
   const addAiChatMessage = useAppStore((state) => state.addAiChatMessage);
   const clearAiChatHistory = useAppStore((state) => state.clearAiChatHistory);
+  const openSheetsCount = useAppStore((state) => state.openSheetsCount);
+  const isAddMenuOpen = useAppStore((state) => state.isAddMenuOpen);
+
+  const isHideDocked = openSheetsCount > 0 || isAddMenuOpen;
 
   // Prevent background scroll when AI drawer is open (but not during active tour)
   useBodyScrollLock(isGoraAiOpen && !isTourOpen);
@@ -961,7 +965,12 @@ export default function GoraAIAssistant() {
   return (
     <>
       {isGoraAiOpen && isTourOpen && (
-        <div className="absolute bottom-[84px] right-4 z-30 flex flex-col items-end gap-2.5 pointer-events-none">
+        <div 
+          className={`absolute right-4 z-30 flex flex-col items-end gap-2.5 pointer-events-none transition-all duration-200 transform-gpu ${
+            isHideDocked ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'
+          }`}
+          style={{ bottom: 'calc(5.25rem + env(safe-area-inset-bottom, 16px))' }}
+        >
           {showDockedBubble && (
             <div className="max-w-[190px] bg-zinc-900/95 dark:bg-zinc-900/95 text-white text-[10px] font-semibold px-3 py-2 rounded-2xl shadow-xl border border-purple-500/30 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto relative">
               <button 
@@ -999,7 +1008,10 @@ export default function GoraAIAssistant() {
         <div className="absolute inset-0 z-50 bg-white dark:bg-zinc-950 flex flex-col overflow-hidden animate-in fade-in duration-200 sm:rounded-[48px]">
           
           {/* Header */}
-          <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-700 via-indigo-700 to-fuchsia-700 text-white flex items-center justify-between shrink-0 shadow-md">
+          <div 
+            className="p-4 sm:p-5 bg-gradient-to-r from-purple-900/90 via-indigo-900/90 to-fuchsia-900/90 text-white flex items-center justify-between shrink-0 shadow-md sticky top-0 z-20 backdrop-blur-xl border-b border-white/10"
+            style={{ paddingTop: 'calc(max(1rem, env(safe-area-inset-top, 16px)) + 0.25rem)' }}
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md shrink-0">
                 <Sparkles size={20} className="text-amber-300" />

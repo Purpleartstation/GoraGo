@@ -30,6 +30,7 @@ interface AppState {
   isTourOpen: boolean;
   currentTourStep: number;
   tourTargetFeature: string | null;
+  openSheetsCount: number;
   aiChatMessages: ChatMessage[];
   aiChatHistory: ChatMessage[];
   hapticsEnabled: boolean;
@@ -40,6 +41,8 @@ interface AppState {
   setViewMode: (mode: 'mine' | 'household') => void;
   toggleAddMenu: (isOpen?: boolean) => void;
   setGoraAiOpen: (isOpen: boolean) => void;
+  incrementOpenSheets: () => void;
+  decrementOpenSheets: () => void;
   setThemeMode: (mode: 'dark' | 'light') => void;
   setAiCategorizationEnabled: (enabled: boolean) => void;
   setActiveCategoryFilter: (catId: string) => void;
@@ -126,6 +129,7 @@ export const useAppStore = create<AppState>((set) => ({
   isTourOpen: false,
   currentTourStep: 0,
   tourTargetFeature: null,
+  openSheetsCount: 0,
   aiChatMessages: getInitialAiMessages(),
   get aiChatHistory() {
     return this.aiChatMessages;
@@ -145,6 +149,8 @@ export const useAppStore = create<AppState>((set) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
   toggleAddMenu: (isOpen) => set((state) => ({ isAddMenuOpen: isOpen !== undefined ? isOpen : !state.isAddMenuOpen })),
   setGoraAiOpen: (isOpen) => set({ isGoraAiOpen: isOpen }),
+  incrementOpenSheets: () => set((state) => ({ openSheetsCount: state.openSheetsCount + 1 })),
+  decrementOpenSheets: () => set((state) => ({ openSheetsCount: Math.max(0, state.openSheetsCount - 1) })),
   startAppTour: (featureKeyOrIndex) => {
     if (typeof featureKeyOrIndex === 'number') {
       set({ isTourOpen: true, currentTourStep: featureKeyOrIndex, tourTargetFeature: null, isGoraAiOpen: true });
