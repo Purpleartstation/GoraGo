@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="kita-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#6366F1"/>
+    </linearGradient>
+    <radialGradient id="glow-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#18181B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <!-- Background squircle -->
+  <rect width="512" height="512" rx="112" fill="#18181B"/>
+  <circle cx="256" cy="256" r="220" fill="url(#glow-grad)"/>
+  
+  <!-- Stylized K symbol -->
+  <path d="M160 130 C160 120 170 112 180 112 L210 112 C220 112 228 120 228 130 L228 382 C228 392 220 400 210 400 L180 400 C170 400 160 392 160 382 Z" fill="url(#kita-grad)"/>
+  <path d="M220 256 L330 136 C336 128 348 126 356 132 L378 148 C386 154 386 166 380 174 L288 270 L382 368 C390 376 388 388 380 396 L356 412 C348 418 336 416 328 408 L220 286 Z" fill="url(#kita-grad)"/>
+  
+  <!-- Financial emerald spark accent -->
+  <circle cx="360" cy="120" r="28" fill="#10B981"/>
+</svg>

@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Home",
+    "tracker": "Tracker",
+    "bills": "Bills",
+    "accounts": "Accounts",
+    "insights": "Insights",
+    "grocery": "Grocery Planner"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "english": "English",
+    "tagalog": "Tagalog"
+  },
+  "common": {
+    "add": "Add",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "close": "Close"
+  }
+}
