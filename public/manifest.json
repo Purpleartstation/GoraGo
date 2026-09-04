@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "kita (GoraGo)",
-  "short_name": "kita",
+  "name": "Go ra ng Go (GoraGo)",
+  "short_name": "GoraGo",
   "description": "Smart household and personal finance tracker with offline sync, grocery budgeting, and CFO insights.",
   "start_url": "/",
   "scope": "/",
