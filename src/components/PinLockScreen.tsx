@@ -115,7 +115,7 @@ export default function PinLockScreen({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleDigit, handleBackspace, showRecoveryModal]);
 
- // Recovery: Re-authenticate with Google
+// Recovery: Re-authenticate with Google
   const handleGoogleRecovery = async () => {
     setIsResetting(true);
     setRecoveryError(null);
