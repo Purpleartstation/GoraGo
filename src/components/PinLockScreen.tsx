@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Delete, ShieldCheck, AlertCircle, RefreshCw, KeyRound, Mail, ArrowRight, X } from 'lucide-react';
 import { verifySecurityPin, setSessionUnlocked, updateLocalSecurityPin, clearLocalSecurityProfile } from '../utils/securityStore';
 import { signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
+import { auth, googleProvider, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useBodyScrollLock } from '../utils/scrollLock';
 
 interface PinLockScreenProps {
@@ -39,14 +40,23 @@ export default function PinLockScreen({
   // Lock body scrolling when recovery modal is open
   useBodyScrollLock(showRecoveryModal);
 
-  // Validate entered PIN
   const handleVerify = useCallback(async (candidatePin: string) => {
     setIsVerifying(true);
     setHasError(false);
     setErrorMessage(null);
 
     try {
-      const isValid = await verifySecurityPin(candidatePin);
+      // 1. Try local verification
+      let isValid = await verifySecurityPin(candidatePin);
+
+      // 2. Fallback: If local check fails, check Firestore user profile on Device 2
+      if (!isValid && auth.currentUser?.uid) {
+        const userSnap = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userSnap.exists() && userSnap.data()?.pinHash === candidatePin) {
+          isValid = true;
+        }
+      }
+
       if (isValid) {
         setIsSuccess(true);
         setSessionUnlocked(true);
@@ -56,9 +66,6 @@ export default function PinLockScreen({
       } else {
         setHasError(true);
         setErrorMessage('Incorrect passcode. Please try again.');
-        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-          try { navigator.vibrate?.([50, 50, 50]); } catch { /* ignore */ }
-        }
         setTimeout(() => {
           setPin('');
           setHasError(false);
