@@ -30,7 +30,31 @@ import PinLockScreen from './components/PinLockScreen';
 export default function App() {
   const [firebaseUser, authLoading] = useAuthState(auth);
   const [profileLoading, setProfileLoading] = useState(true);
+// Listen for Auth changes & hydrate user profile from Firestore
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      const profileData = await syncUserProfile(user);
+      if (profileData?.householdId) {
+        useAppStore.getState().setCurrentHousehold(profileData.householdId);
+      }
+    }
+  });
 
+  return () => unsubscribe();
+}, []);
+  // Function to join a partner's household via pairing code
+  const handleJoinHousehold = async (pairingCode: string) => {
+    if (!firebaseUser) return;
+    try {
+      await joinHousehold(firebaseUser.uid, pairingCode);
+      useAppStore.getState().setCurrentHousehold(pairingCode);
+      alert('Successfully linked to partner household!');
+    } catch (err) {
+      console.error('Failed to join household:', err);
+      alert('Failed to join household. Please check the code.');
+    }
+  };
   // Synchronous initial security state from LocalStorage to prevent flicker
   const initialSec = getSyncSecurityState();
   const [hasStoredPin, setHasStoredPin] = useState<boolean>(initialSec.hasPin);
