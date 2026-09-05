@@ -7,7 +7,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
-import { auth, googleProvider, db } from '../firebase';
+import {
   Wallet,
   Check,
   AlertCircle,
