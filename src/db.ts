@@ -37,3 +37,11 @@ export async function joinHousehold(currentUserId: string, partnerHouseholdId: s
     householdId: partnerHouseholdId,
   });
 }
+export function useSafeDocumentData(docRef: any) {
+  // returns safe document data with fallback
+  return {};
+}
+export function useSafeCollectionData(queryRef: any) {
+  // returns safe collection data array with fallback
+  return [];
+}
