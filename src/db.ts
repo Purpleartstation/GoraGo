@@ -45,3 +45,12 @@ export function useSafeCollectionData(queryRef: any) {
   // returns safe collection data array with fallback
   return [];
 }
+export { db };
+export const collections = {
+  users: 'users',
+  households: 'households',
+  accounts: 'accounts',
+  transactions: 'transactions',
+  bills: 'bills',
+  goals: 'goals'
+};
