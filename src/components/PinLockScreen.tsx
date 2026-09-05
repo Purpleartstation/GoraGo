@@ -115,12 +115,22 @@ export default function PinLockScreen({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleDigit, handleBackspace, showRecoveryModal]);
 
-  // Recovery: Re-authenticate with Google
+ // Recovery: Re-authenticate with Google
   const handleGoogleRecovery = async () => {
     setIsResetting(true);
     setRecoveryError(null);
     try {
       const res = await signInWithPopup(auth, googleProvider);
+      const loggedInEmail = res.user.email;
+
+      // Ensure the signed-in account matches the bound user email
+      if (userEmail && loggedInEmail !== userEmail) {
+        await signOut(auth);
+        setRecoveryError(`Unauthorized account. Please sign in with ${userEmail}`);
+        setIsResetting(false);
+        return;
+      }
+
       if (res.user) {
         setRecoveryStep('set_new_pin');
         setNewPin('');
@@ -134,7 +144,7 @@ export default function PinLockScreen({
       setIsResetting(false);
     }
   };
-
+  
   // Recovery: Save new PIN
   const handleSaveNewPin = async () => {
     if (newPin.length !== 4) {
