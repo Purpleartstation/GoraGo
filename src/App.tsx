@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
-import { doc, onSnapshot } from 'firebase/firestore';
 import {
   ensureUserProfile,
   enableRealtimeSync,
@@ -10,6 +10,8 @@ import {
   getLocalSecurityProfile,
   isSessionUnlocked,
   mergeLocalAndRemoteData,
+  syncUserProfile,
+  joinHousehold,
   db,
 } from './db';
 import type { SecurityProfile } from './db';
