@@ -6,6 +6,11 @@ import {
   updateHousehold,
   wipeHouseholdData,
   linkGoogleEmail,
+  mergeLocalAndRemoteData,
+  createHousehold,
+  getHouseholdPairingCode,
+  pairHouseholdByCodeOrEmail,
+  unpairHouseholdMember,
 } from '../db';
 import type { User, Household, Bill, Debt } from '../db';
 import { useAppStore } from '../store';
@@ -37,6 +42,9 @@ import {
   Send,
   Volume2,
   Zap,
+  Copy,
+  Link,
+  UserMinus,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -104,10 +112,21 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   const [calendarRemindersEnabled, setCalendarRemindersEnabled] = useState(true);
 
   // Partner Sync States
-  const [partnerEmail, setPartnerEmail] = useState('');
+  const [householdPairingCode, setHouseholdPairingCode] = useState<string>('');
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [partnerCodeOrEmailInput, setPartnerCodeOrEmailInput] = useState('');
+  const [isPairing, setIsPairing] = useState(false);
   const [partnerStatus, setPartnerStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSendingTestAlert, setIsSendingTestAlert] = useState(false);
   const [testAlertSuccess, setTestAlertSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentHouseholdId) {
+      getHouseholdPairingCode(currentHouseholdId).then(code => {
+        setHouseholdPairingCode(code);
+      });
+    }
+  }, [currentHouseholdId, household]);
 
   // Danger Zone States
   const [showResetModal, setShowResetModal] = useState(false);
@@ -313,43 +332,50 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     }
   };
 
-  // Connect Partner by Email
-  const handleConnectPartner = async (e: React.FormEvent) => {
+  // Copy Household Code
+  const handleCopyHouseholdCode = () => {
+    if (!householdPairingCode) return;
+    navigator.clipboard.writeText(householdPairingCode);
+    setCopiedCode(true);
+    triggerHaptic('success');
+    playSound('tap');
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
+
+  // Pair Household via Code or Email
+  const handlePairHousehold = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partnerEmail.trim() || !household) return;
+    if (!partnerCodeOrEmailInput.trim() || !currentUserId) return;
 
-    const foundUser = allUsers?.find(
-      u => u.email?.toLowerCase() === partnerEmail.trim().toLowerCase()
-    );
+    setIsPairing(true);
+    setPartnerStatus(null);
 
-    if (!foundUser) {
+    try {
+      const res = await pairHouseholdByCodeOrEmail(currentUserId, partnerCodeOrEmailInput.trim());
+
+      if (res.success) {
+        setPartnerStatus({
+          type: 'success',
+          text: res.message,
+        });
+        setPartnerCodeOrEmailInput('');
+        if (res.householdId) {
+          useAppStore.getState().setCurrentHousehold(res.householdId);
+        }
+      } else {
+        setPartnerStatus({
+          type: 'error',
+          text: res.message,
+        });
+      }
+    } catch (err: any) {
       setPartnerStatus({
         type: 'error',
-        text: 'User with this email not found. (Example: maria@example.com)'
+        text: err?.message || 'Failed to pair household.',
       });
-      return;
+    } finally {
+      setIsPairing(false);
     }
-
-    if (household.memberIds?.includes(foundUser.id)) {
-      setPartnerStatus({
-        type: 'error',
-        text: 'This user is already connected to your household.'
-      });
-      return;
-    }
-
-    const updatedMembers = [...(household.memberIds || []), foundUser.id];
-    await updateHousehold(household.id, {
-      memberIds: updatedMembers,
-      type: 'partner'
-    });
-
-    setPartnerStatus({
-      type: 'success',
-      text: `${foundUser.name} is now connected! Real-time syncing is active.`
-    });
-    setPartnerEmail('');
-    setTimeout(() => setPartnerStatus(null), 4000);
   };
 
   // Send Test Partner Notification
@@ -397,14 +423,22 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
   // Disconnect Partner
   const handleDisconnectMember = async (memberId: string) => {
     if (!household || memberId === currentUserId) return;
-    const confirmDisc = window.confirm('Are you sure you want to disconnect this partner? Real-time sync between your accounts will stop.');
+    const confirmDisc = window.confirm('Are you sure you want to unpair this partner? Real-time sync between your accounts will stop.');
     if (!confirmDisc) return;
 
-    const updatedMembers = (household.memberIds || []).filter(id => id !== memberId);
-    await updateHousehold(household.id, {
-      memberIds: updatedMembers,
-      type: updatedMembers.length > 1 ? 'partner' : 'solo'
-    });
+    try {
+      await unpairHouseholdMember(household.id, memberId);
+      setPartnerStatus({
+        type: 'success',
+        text: 'Partner successfully unpaired and moved to a fresh independent workspace.'
+      });
+      setTimeout(() => setPartnerStatus(null), 4000);
+    } catch (err: any) {
+      setPartnerStatus({
+        type: 'error',
+        text: err?.message || 'Failed to unpair partner.'
+      });
+    }
   };
 
   // Execute Household Reset (Danger Zone)
@@ -432,7 +466,15 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
     }
   };
 
-  const householdMembers = allUsers?.filter(u => household?.memberIds.includes(u.id)) || [];
+  const householdMembers = (household?.memberIds || (currentUserId ? [currentUserId] : [])).map((memberId) => {
+    const foundUser = allUsers?.find(u => u.id === memberId) || (memberId === currentUserId ? user : null);
+    return {
+      id: memberId,
+      name: foundUser?.name || (memberId === currentUserId ? user?.name || 'You' : 'Partner'),
+      email: foundUser?.email || foundUser?.linkedGoogleEmail || 'Connected via Partner Code',
+      avatar: foundUser?.avatar,
+    };
+  });
   const isGoogleBound = user?.isGoogleBound || user?.email?.toLowerCase().endsWith('@gmail.com');
 
   return (
@@ -834,7 +876,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
                   </div>
                   <div>
                     <h4 className="text-sm font-black text-zinc-900 dark:text-zinc-100">Connected Partners Real-Time Sync</h4>
-                    <p className="text-[11px] text-zinc-500">Instant balance updates & automated email notifications</p>
+                    <p className="text-[11px] text-zinc-500">Instant balance updates & bidirectional pairing</p>
                   </div>
                 </div>
 
@@ -844,26 +886,89 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
               </div>
 
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                When either partner logs a transaction, pays a bill, or adjusts account funds, changes are synchronized immediately across all active screens and browsers.
+                When either partner logs a transaction, pays a bill, or adjusts account funds, changes are synchronized immediately across all active screens and devices.
               </p>
 
-              {/* Household Members List */}
+              {/* 1. Unique Household Pairing Code Display Card */}
+              <div className="p-3.5 bg-gradient-to-r from-purple-900/20 via-indigo-900/20 to-fuchsia-900/20 border border-purple-500/30 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded bg-purple-500/20 text-purple-600 dark:text-fuchsia-400 flex items-center justify-center font-bold">
+                      <KeyRound size={13} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-zinc-900 dark:text-zinc-100">Household Pairing Code</p>
+                      <p className="text-[10px] text-zinc-500">Share this unique ID with your partner</p>
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    ● Active Code
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 p-2.5 bg-white dark:bg-zinc-950 border border-purple-500/25 rounded-lg shadow-xs">
+                  <div className="font-mono text-sm sm:text-base font-black tracking-wider text-purple-700 dark:text-fuchsia-300 select-all">
+                    {householdPairingCode || 'GORA-8X92-KL41'}
+                  </div>
+                  <button
+                    type="button"
+                    id="copy-household-code-btn"
+                    onClick={handleCopyHouseholdCode}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs active:scale-95 shrink-0"
+                  >
+                    {copiedCode ? <Check size={14} className="text-emerald-300" /> : <Copy size={14} />}
+                    <span>{copiedCode ? 'Copied!' : '📋 Copy Code'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Live Connected Household Member List */}
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-wider pl-0.5">Household Members</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-wider pl-0.5">
+                    Live Connected Members ({householdMembers.length})
+                  </p>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Real-Time Channel
+                  </span>
+                </div>
+
                 {householdMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex justify-between items-center p-3 bg-white dark:bg-zinc-900/60 rounded-xl border border-black/5 dark:border-white/5 shadow-xs"
+                    className="flex justify-between items-center p-3 bg-white dark:bg-zinc-900/80 rounded-xl border border-black/5 dark:border-white/5 shadow-xs"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-600 dark:text-fuchsia-300 flex items-center justify-center font-bold text-xs ring-1 ring-purple-500/30">
-                        {member.name.charAt(0)}
-                      </div>
+                      {member.avatar ? (
+                        <img
+                          src={member.avatar}
+                          alt={member.name}
+                          className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/30"
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center font-black text-xs ring-2 ring-purple-500/30 shadow-xs">
+                          {member.name ? member.name.charAt(0).toUpperCase() : 'P'}
+                        </div>
+                      )}
                       <div>
-                        <p className="text-xs font-bold text-zinc-900 dark:text-zinc-200">
-                          {member.name} {member.id === currentUserId && <span className="text-[10px] text-purple-600 dark:text-fuchsia-400 font-bold">(You)</span>}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 font-medium">{member.email}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                            {member.name}
+                          </p>
+                          {member.id === currentUserId && (
+                            <span className="px-1.5 py-0.2 text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-fuchsia-300 rounded border border-purple-500/20">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-zinc-500 font-medium">{member.email || 'No email attached'}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-tight">
+                            🟢 Connected / Synced
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -871,37 +976,42 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
                       <button
                         type="button"
                         onClick={() => handleDisconnectMember(member.id)}
-                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 px-2.5 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-all"
+                        className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all flex items-center gap-1 active:scale-95"
                       >
-                        Disconnect
+                        <UserMinus size={13} />
+                        Unpair / Remove
                       </button>
                     )}
                   </div>
                 ))}
               </div>
 
-              {/* Invite / Pair Partner Form */}
-              <form onSubmit={handleConnectPartner} className="space-y-2 pt-2 border-t border-black/5 dark:border-white/5">
+              {/* 3. Pair via Code Input Form */}
+              <form onSubmit={handlePairHousehold} className="space-y-2 pt-2 border-t border-black/5 dark:border-white/5">
                 <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider pl-0.5 block">
-                  Connect New Partner via Email
+                  Pair via Household Code or Partner Email
                 </label>
                 <div className="flex gap-2">
                   <input
-                    type="email"
-                    id="partner-email-input"
-                    value={partnerEmail}
-                    onChange={e => setPartnerEmail(e.target.value)}
-                    placeholder="Enter partner email (e.g. maria@example.com)"
-                    className="flex-1 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/5 rounded-xl px-4 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    type="text"
+                    id="partner-code-input"
+                    value={partnerCodeOrEmailInput}
+                    onChange={e => setPartnerCodeOrEmailInput(e.target.value)}
+                    placeholder="Paste Code (e.g. GORA-8X92-KL41) or Email"
+                    className="flex-1 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500 uppercase placeholder:normal-case font-medium"
                   />
                   <button
                     type="submit"
-                    id="connect-partner-btn"
-                    disabled={!partnerEmail.trim()}
-                    className="px-4 bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white disabled:opacity-30 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-md active:scale-95"
+                    id="pair-household-btn"
+                    disabled={!partnerCodeOrEmailInput.trim() || isPairing}
+                    className="px-4 bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white disabled:opacity-40 rounded-xl font-bold text-xs transition-all flex items-center gap-1.5 shadow-md active:scale-95 shrink-0"
                   >
-                    <UserPlus size={14} />
-                    Pair
+                    {isPairing ? (
+                      <RefreshCw size={14} className="animate-spin" />
+                    ) : (
+                      <Link size={14} />
+                    )}
+                    <span>{isPairing ? 'Pairing...' : '🔗 Pair Household'}</span>
                   </button>
                 </div>
 
@@ -912,7 +1022,7 @@ export default function SettingsSheet({ isOpen, onClose }: SettingsSheetProps) {
                       : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
                   }`}>
                     {partnerStatus.type === 'success' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-                    {partnerStatus.text}
+                    <span>{partnerStatus.text}</span>
                   </div>
                 )}
               </form>

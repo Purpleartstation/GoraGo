@@ -1,7 +1,7 @@
 import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, getDocs, query, where, writeBatch, onSnapshot } from 'firebase/firestore';
 import type { CollectionReference, DocumentData } from 'firebase/firestore';
 import { db as firestoreDb } from './firebase';
-import { useSyncExternalStore, useCallback } from 'react';
+import { useSyncExternalStore, useCallback, useEffect } from 'react';
 import { getCalendarToken, createMonthlyRecurringEvent, updateCalendarEvent, deleteCalendarEvent } from './utils/googleCalendar';
 import { sendPartnerNotification } from './utils/partnerNotification';
 import {
@@ -55,6 +55,7 @@ export interface Household {
   name: string;
   type: 'solo' | 'partner' | 'family';
   memberIds: string[];
+  pairingCode?: string;
 }
 
 export interface Account {
@@ -1307,13 +1308,74 @@ export async function linkGoogleEmail(userId: string, targetEmail: string): Prom
   }
 }
 
+export function generatePairingCode(householdId?: string): string {
+  if (!householdId) {
+    const r1 = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const r2 = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `GORA-${r1}-${r2}`;
+  }
+  const clean = householdId.replace(/^h_/, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const part1 = (clean.slice(0, 4) || '8X92').padEnd(4, 'X');
+  const part2 = (clean.slice(4, 8) || 'KL41').padEnd(4, 'Y');
+  return `GORA-${part1}-${part2}`;
+}
+
+export async function getHouseholdPairingCode(householdId: string): Promise<string> {
+  if (!householdId) return 'GORA-8X92-KL41';
+  
+  const hh = localStore.households[householdId];
+  if (hh && hh.pairingCode) return hh.pairingCode;
+
+  let code = generatePairingCode(householdId);
+
+  try {
+    const householdRef = doc(db, 'households', householdId);
+    const snap = await getDoc(householdRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.pairingCode) {
+        code = data.pairingCode;
+      } else {
+        await setDoc(householdRef, { pairingCode: code }, { merge: true });
+      }
+    } else {
+      await setDoc(householdRef, {
+        id: householdId,
+        name: hh?.name || 'My Household',
+        type: 'partner',
+        memberIds: hh?.memberIds || [],
+        pairingCode: code,
+      }, { merge: true });
+    }
+  } catch (err) {
+    console.warn("Firestore getHouseholdPairingCode error:", err);
+  }
+
+  if (hh) {
+    hh.pairingCode = code;
+  } else {
+    localStore.households[householdId] = {
+      id: householdId,
+      name: 'My Household',
+      type: 'partner',
+      memberIds: [],
+      pairingCode: code,
+    };
+  }
+  notifyStoreChange();
+
+  return code;
+}
+
 export async function createHousehold(userId: string, householdName: string): Promise<string> {
   const householdId = 'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  const pairingCode = generatePairingCode(householdId);
   const newHousehold: Household = {
     id: householdId,
     name: householdName,
     type: 'partner',
     memberIds: [userId],
+    pairingCode,
   };
 
   localStore.households[householdId] = newHousehold;
@@ -1343,7 +1405,6 @@ export async function joinHousehold(userId: string, householdId: string): Promis
       localStore.users[userId].householdId = householdId;
     }
     notifyStoreChange();
-    return true;
   }
 
   try {
@@ -1365,6 +1426,175 @@ export async function joinHousehold(userId: string, householdId: string): Promis
   }
 
   return true;
+}
+
+export async function pairHouseholdByCodeOrEmail(
+  currentUserId: string,
+  codeOrEmail: string
+): Promise<{ success: boolean; message: string; householdId?: string }> {
+  const inputRaw = codeOrEmail.trim();
+  if (!inputRaw) {
+    return { success: false, message: 'Please enter a valid pairing code or partner email.' };
+  }
+
+  const codeUpper = inputRaw.toUpperCase();
+  const emailLower = inputRaw.toLowerCase();
+
+  let targetHouseholdId: string | null = null;
+  let targetHouseholdName: string = 'Partner Household';
+
+  // 1. Search by pairingCode in Firestore or localStore
+  try {
+    const hhColl = collections.households;
+    const qCode = query(hhColl, where('pairingCode', '==', codeUpper));
+    const snapCode = await getDocs(qCode);
+    if (!snapCode.empty) {
+      const hhData = snapCode.docs[0].data() as Household;
+      targetHouseholdId = hhData.id;
+      targetHouseholdName = hhData.name || targetHouseholdName;
+    }
+  } catch (err) {
+    console.warn("Query households by pairingCode error:", err);
+  }
+
+  // Check by household doc ID directly
+  if (!targetHouseholdId) {
+    try {
+      const hhSnap = await getDoc(doc(db, 'households', inputRaw));
+      if (hhSnap.exists()) {
+        const hhData = hhSnap.data() as Household;
+        targetHouseholdId = hhData.id;
+        targetHouseholdName = hhData.name || targetHouseholdName;
+      }
+    } catch (err) {
+      console.warn("Query households by ID error:", err);
+    }
+  }
+
+  // Search localStore households
+  if (!targetHouseholdId) {
+    const localHh = Object.values(localStore.households).find(
+      h => h.id === inputRaw || (h.pairingCode && h.pairingCode.toUpperCase() === codeUpper)
+    );
+    if (localHh) {
+      targetHouseholdId = localHh.id;
+      targetHouseholdName = localHh.name || targetHouseholdName;
+    }
+  }
+
+  // 2. Search by partner EMAIL or user ID in Firestore or localStore
+  if (!targetHouseholdId) {
+    try {
+      const usersColl = collections.users;
+      const qEmail = query(usersColl, where('email', '==', emailLower));
+      const snapEmail = await getDocs(qEmail);
+      if (!snapEmail.empty) {
+        const userData = snapEmail.docs[0].data() as User;
+        if (userData.householdId) {
+          targetHouseholdId = userData.householdId;
+        }
+      }
+    } catch (err) {
+      console.warn("Query users by email error:", err);
+    }
+  }
+
+  if (!targetHouseholdId) {
+    try {
+      const usersColl = collections.users;
+      const qLinked = query(usersColl, where('linkedGoogleEmail', '==', emailLower));
+      const snapLinked = await getDocs(qLinked);
+      if (!snapLinked.empty) {
+        const userData = snapLinked.docs[0].data() as User;
+        if (userData.householdId) {
+          targetHouseholdId = userData.householdId;
+        }
+      }
+    } catch (err) {
+      console.warn("Query users by linked email error:", err);
+    }
+  }
+
+  if (!targetHouseholdId) {
+    const localUser = Object.values(localStore.users).find(
+      u => u.email?.toLowerCase() === emailLower || u.id === inputRaw
+    );
+    if (localUser && localUser.householdId) {
+      targetHouseholdId = localUser.householdId;
+    }
+  }
+
+  if (!targetHouseholdId) {
+    return {
+      success: false,
+      message: `No active household or partner found for code or email "${inputRaw}". Double-check the code and try again.`,
+    };
+  }
+
+  // Determine current user's household before joining
+  const userObj = localStore.users[currentUserId];
+  const previousHouseholdId = userObj?.householdId || 'h_sample';
+
+  if (previousHouseholdId === targetHouseholdId) {
+    return {
+      success: false,
+      message: 'You are already connected to this household!',
+      householdId: targetHouseholdId,
+    };
+  }
+
+  // 3. Update User B's profile and join target household
+  await joinHousehold(currentUserId, targetHouseholdId);
+
+  try {
+    await setDoc(doc(db, 'users', currentUserId), { householdId: targetHouseholdId }, { merge: true });
+  } catch (err) {
+    console.warn("Failed to set user householdId in Firestore:", err);
+  }
+
+  // 4. Run bidirectional merge engine
+  await mergeLocalAndRemoteData(previousHouseholdId, targetHouseholdId);
+
+  return {
+    success: true,
+    message: `Successfully paired! Joined ${targetHouseholdName}. All accounts, balances, and goals synchronized.`,
+    householdId: targetHouseholdId,
+  };
+}
+
+export async function unpairHouseholdMember(
+  householdId: string,
+  memberIdToDisconnect: string
+): Promise<void> {
+  const hh = localStore.households[householdId];
+  if (hh) {
+    hh.memberIds = (hh.memberIds || []).filter(id => id !== memberIdToDisconnect);
+  }
+
+  try {
+    const hhRef = doc(db, 'households', householdId);
+    const snap = await getDoc(hhRef);
+    if (snap.exists()) {
+      const data = snap.data() as Household;
+      const updatedMembers = (data.memberIds || []).filter(id => id !== memberIdToDisconnect);
+      await updateDoc(hhRef, { memberIds: updatedMembers });
+    }
+  } catch (err) {
+    console.warn("Failed to remove member from household in Firestore:", err);
+  }
+
+  const newHouseholdId = await createHousehold(memberIdToDisconnect, 'My Household');
+
+  if (localStore.users[memberIdToDisconnect]) {
+    localStore.users[memberIdToDisconnect].householdId = newHouseholdId;
+  }
+  notifyStoreChange();
+
+  try {
+    await setDoc(doc(db, 'users', memberIdToDisconnect), { householdId: newHouseholdId }, { merge: true });
+  } catch (err) {
+    console.warn("Failed to update disconnected user profile in Firestore:", err);
+  }
 }
 
 export async function ensureDefaultCategories(householdId: string): Promise<void> {
@@ -1750,3 +1980,123 @@ export async function wipeHouseholdData(householdId: string): Promise<void> {
     console.warn("Firestore wipe notice (wiped locally):", err?.message || err);
   }
 }
+
+/**
+ * Merges local offline/guest data (usually under h_sample) with the user's
+ * remote household data in Firestore, preserving the latest updates.
+ */
+export const pairHouseholdAccount = pairHouseholdByCodeOrEmail;
+
+export function useHouseholdSync(householdId: string | null) {
+  useEffect(() => {
+    if (householdId) {
+      enableRealtimeSync(householdId);
+    }
+  }, [householdId]);
+}
+
+function parseTimestamp(val: any): number {
+  if (!val) return 0;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    const parsed = Date.parse(val);
+    return isNaN(parsed) ? (Number(val) || 0) : parsed;
+  }
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'object' && typeof val.seconds === 'number') return val.seconds * 1000;
+  return 0;
+}
+
+export async function mergeLocalAndRemoteData(localHhId: string, remoteHhId: string): Promise<void> {
+  if (!remoteHhId || localHhId === remoteHhId) return;
+
+  const collectionsToMerge = [
+    { name: 'accounts', collRef: collections.accounts },
+    { name: 'bills', collRef: collections.bills },
+    { name: 'debts', collRef: collections.debts },
+    { name: 'categories', collRef: collections.categories },
+    { name: 'transactions', collRef: collections.transactions },
+    { name: 'recurringRules', collRef: collections.recurringRules },
+    { name: 'groceryItems', collRef: collections.groceryItems },
+    { name: 'groceryLists', collRef: collections.groceryLists },
+    { name: 'goals', collRef: collections.goals },
+  ];
+
+  for (const { name, collRef } of collectionsToMerge) {
+    let remoteDocs: any[] = [];
+    try {
+      const q = query(collRef, where('householdId', '==', remoteHhId));
+      const snap = await getDocs(q);
+      remoteDocs = snap.docs.map(doc => doc.data());
+    } catch (e) {
+      console.warn(`Failed to fetch remote docs for merge on ${name}:`, e);
+    }
+
+    const localDocs = ((localStore as any)[name] as any[]) || [];
+
+    const localMap = new Map<string, any>();
+    localDocs.forEach(d => {
+      if (d.householdId === localHhId) {
+        localMap.set(d.id, d);
+      }
+    });
+
+    const remoteMap = new Map<string, any>();
+    remoteDocs.forEach(d => remoteMap.set(d.id, d));
+
+    const mergedList: any[] = [];
+
+    // Include remote docs that aren't present locally
+    remoteDocs.forEach(r => {
+      if (!localMap.has(r.id)) {
+        mergedList.push(r);
+      }
+    });
+
+    // Merge or migrate local docs
+    for (const [id, localDoc] of localMap.entries()) {
+      const remoteDoc = remoteMap.get(id);
+
+      if (remoteDoc) {
+        const localTime = parseTimestamp(localDoc.lastUpdated || localDoc.lastUpdatedDate || localDoc.updatedAt || localDoc.date);
+        const remoteTime = parseTimestamp(remoteDoc.lastUpdated || remoteDoc.lastUpdatedDate || remoteDoc.updatedAt || remoteDoc.date);
+
+        if (localTime >= remoteTime) {
+          const updatedDoc = { 
+            ...localDoc, 
+            householdId: remoteHhId, 
+            lastUpdatedDate: localTime || Date.now(),
+            lastUpdated: localTime || Date.now()
+          };
+          mergedList.push(updatedDoc);
+          try {
+            await setDoc(doc(db, name, id), updatedDoc);
+          } catch (err) {
+            console.warn(`Failed to push merged local doc ${id} in ${name}:`, err);
+          }
+        } else {
+          mergedList.push(remoteDoc);
+        }
+      } else {
+        const updatedDoc = { 
+          ...localDoc, 
+          householdId: remoteHhId, 
+          lastUpdatedDate: parseTimestamp(localDoc.lastUpdated || localDoc.lastUpdatedDate || localDoc.date) || Date.now(),
+          lastUpdated: parseTimestamp(localDoc.lastUpdated || localDoc.lastUpdatedDate || localDoc.date) || Date.now()
+        };
+        mergedList.push(updatedDoc);
+        try {
+          await setDoc(doc(db, name, id), updatedDoc);
+        } catch (err) {
+          console.warn(`Failed to push local-only doc ${id} in ${name}:`, err);
+        }
+      }
+    }
+
+    const otherHhDocs = localDocs.filter(d => d.householdId !== localHhId);
+    (localStore as any)[name] = [...otherHhDocs, ...mergedList];
+  }
+
+  notifyStoreChange();
+}
+

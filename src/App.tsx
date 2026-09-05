@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from './firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import {
   ensureUserProfile,
   enableRealtimeSync,
   getSyncSecurityState,
   getLocalSecurityProfile,
   isSessionUnlocked,
+  mergeLocalAndRemoteData,
+  db,
 } from './db';
 import type { SecurityProfile } from './db';
 import { useAppStore } from './store';
@@ -96,7 +99,7 @@ export default function App() {
     return () => window.removeEventListener('gorago_lock_app', handleLock);
   }, []);
 
-  // Sync Firebase user profile
+  // Sync Firebase user profile & merge local guest data with cloud data on login
   useEffect(() => {
     async function loadProfile() {
       if (!firebaseUser) {
@@ -113,6 +116,10 @@ export default function App() {
           setHasStoredPin(true);
         }
         if (userProfile.householdId) {
+          const localHh = useAppStore.getState().currentHouseholdId || 'h_sample';
+          if (localHh !== userProfile.householdId) {
+            await mergeLocalAndRemoteData(localHh, userProfile.householdId);
+          }
           setCurrentHousehold(userProfile.householdId);
         }
       } catch (err) {
@@ -123,6 +130,31 @@ export default function App() {
     }
 
     loadProfile();
+  }, [firebaseUser, setCurrentUser, setCurrentHousehold]);
+
+  // Real-time listener on User Profile in Firestore
+  useEffect(() => {
+    if (!firebaseUser) return;
+
+    const userDocRef = doc(db, 'users', firebaseUser.uid);
+    const unsub = onSnapshot(userDocRef, (snap) => {
+      if (snap.exists()) {
+        const userProfile = snap.data() as any;
+        setCurrentUser(userProfile.id);
+        if (userProfile.name) setSavedUserName(userProfile.name);
+        if (userProfile.email) setSavedUserEmail(userProfile.email);
+        if (userProfile.hasPin) {
+          setHasStoredPin(true);
+        }
+        if (userProfile.householdId) {
+          setCurrentHousehold(userProfile.householdId);
+        }
+      }
+    }, (err) => {
+      console.warn("Real-time user profile sync error:", err);
+    });
+
+    return () => unsub();
   }, [firebaseUser, setCurrentUser, setCurrentHousehold]);
 
   // Enable real-time sync when household is active
