@@ -6,16 +6,19 @@ import { auth } from './firebase';
 import {
   ensureUserProfile,
   enableRealtimeSync,
-  getSyncSecurityState,
-  getLocalSecurityProfile,
-  isSessionUnlocked,
   mergeLocalAndRemoteData,
   syncUserProfile,
   joinHousehold,
   db,
 } from './db';
+import {
+  getSyncSecurityState,
+  getLocalSecurityProfile,
+  isSessionUnlocked,
+} from './utils/securityStore';
 import type { SecurityProfile } from './db';
 import { useAppStore } from './store';
+import { doc, onSnapshot } from 'firebase/firestore';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Accounts from './pages/Accounts';
@@ -30,19 +33,21 @@ import PinLockScreen from './components/PinLockScreen';
 export default function App() {
   const [firebaseUser, authLoading] = useAuthState(auth);
   const [profileLoading, setProfileLoading] = useState(true);
-// Listen for Auth changes & hydrate user profile from Firestore
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      const profileData = await syncUserProfile(user);
-      if (profileData?.householdId) {
-        useAppStore.getState().setCurrentHousehold(profileData.householdId);
-      }
-    }
-  });
 
-  return () => unsubscribe();
-}, []);
+  // Listen for Auth changes & hydrate user profile from Firestore
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const profileData = await syncUserProfile(user);
+        if (profileData?.householdId) {
+          useAppStore.getState().setCurrentHousehold(profileData.householdId);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   // Function to join a partner's household via pairing code
   const handleJoinHousehold = async (pairingCode: string) => {
     if (!firebaseUser) return;
@@ -55,6 +60,7 @@ useEffect(() => {
       alert('Failed to join household. Please check the code.');
     }
   };
+
   // Synchronous initial security state from LocalStorage to prevent flicker
   const initialSec = getSyncSecurityState();
   const [hasStoredPin, setHasStoredPin] = useState<boolean>(initialSec.hasPin);
