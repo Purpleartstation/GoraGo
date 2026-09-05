@@ -54,3 +54,22 @@ export const collections = {
   bills: 'bills',
   goals: 'goals'
 };
+export async function saveGroceryList(list: any) {
+  return list;
+}
+
+export async function deleteGroceryList(listId: string) {
+  return true;
+}
+
+export async function completeGroceryList(listId: string) {
+  return true;
+}
+
+export async function saveGroceryItem(item: any) {
+  return item;
+}
+
+export async function deleteGroceryItem(itemId: string) {
+  return true;
+}
