@@ -6,8 +6,8 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
-import {
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, googleProvider, db } from '../firebase';
   Wallet,
   Check,
   AlertCircle,
@@ -218,29 +218,41 @@ export default function AuthScreen({
     }
   };
 
-  // Finalize and save PIN to IndexedDB & settings
-  const handleFinalizePin = useCallback(async (finalPin: string) => {
-    setIsSavingPin(true);
-    setIsPinSuccess(true);
+ // Finalize and save PIN to IndexedDB & settings
+const handleFinalizePin = useCallback(async (finalPin: string) => {
+  setIsSavingPin(true);
+  setIsPinSuccess(true);
+  try {
+    const pinH = await hashPin(finalPin);
+    const userId = activeUser?.id || 'u_local_' + Date.now();
+    const userName = activeUser?.name || 'GoraGo User';
+    const userEmail = activeUser?.email || '';
+    const isGoogle = activeUser?.isGoogle || false;
 
-    try {
-      const pinH = await hashPin(finalPin);
-      const userId = activeUser?.id || 'u_local_' + Date.now();
-      const userName = activeUser?.name || 'GoraGo User';
-      const userEmail = activeUser?.email || '';
-      const isGoogle = activeUser?.isGoogle || false;
+    // Save PIN hash to Firestore so Device 2 recognizes it on login
+    if (auth.currentUser?.uid) {
+      try {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userRef, {
+          pinHash: pinH,
+          hasPin: true,
+        });
+      } catch (err) {
+        console.error('Failed to sync PIN to Firestore:', err);
+      }
+    }
 
-      // 1. Save to IndexedDB & LocalStorage security engine
-      await saveLocalSecurityProfile({
-        userId,
-        name: userName,
-        email: userEmail,
-        pinHash: pinH,
-        hasPin: true,
-        isGoogleBound: isGoogle,
-        linkedGoogleEmail: isGoogle ? userEmail : undefined,
-        householdId: 'h_sample',
-      });
+    // 1. Save to IndexedDB & LocalStorage security engine
+    await saveLocalSecurityProfile({
+      userId,
+      name: userName,
+      email: userEmail,
+      pinHash: pinH,
+      hasPin: true,
+      isGoogleBound: isGoogle,
+      linkedGoogleEmail: isGoogle ? userEmail : undefined,
+      householdId: 'h_sample',
+    });
 
       // 2. Update user profile in local store & firestore
       await updateUserProfile(userId, {
