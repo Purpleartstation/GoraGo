@@ -1,33 +1,39 @@
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase'; // Adjust path if in App.tsx
+import { db } from './firebase';
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  onSnapshot, 
+  query, 
+  orderBy 
+} from 'firebase/firestore';
 
-useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
+// Save or Sync User Profile to Firestore
+export async function syncUserProfile(user: any) {
+  if (!user) return null;
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
 
-      if (userSnap.exists()) {
-        // Existing account: Load data directly from Firestore
-        const userData = userSnap.data();
-        setUser({ ...user, ...userData });
-      } else {
-        // New user: Create profile and assign default household ID
-        const newUserData = {
-          email: user.email,
-          displayName: user.displayName,
-          householdId: user.uid,
-          createdAt: new Date(),
-        };
-        await setDoc(userRef, newUserData);
-        setUser({ ...user, ...newUserData });
-      }
-    } else {
-      setUser(null);
-    }
-    setLoading(false);
+  if (userSnap.exists()) {
+    return userSnap.data();
+  } else {
+    const newUserData = {
+      email: user.email,
+      displayName: user.displayName,
+      householdId: user.uid,
+      createdAt: new Date(),
+    };
+    await setDoc(userRef, newUserData);
+    return newUserData;
+  }
+}
+
+// Join Partner Household via Household/Pairing Code
+export async function joinHousehold(currentUserId: string, partnerHouseholdId: string) {
+  const userRef = doc(db, 'users', currentUserId);
+  await updateDoc(userRef, {
+    householdId: partnerHouseholdId,
   });
-
-  return () => unsubscribe();
-}, []);
+}
