@@ -1868,21 +1868,137 @@ export function generatePairingCode(): string {
   return `GORA-${part1}-${part2}`;
 }
 
+export function normalizePairingCode(input: string): {
+  raw: string;
+  upper: string;
+  clean: string;
+  formatted: string;
+  isPairingCodePattern: boolean;
+} {
+  const raw = (input || '').trim();
+  const upper = raw.toUpperCase();
+  let clean = upper.replace(/[^A-Z0-9]/g, '');
+
+  if (!clean.startsWith('GORA') && clean.length === 8) {
+    clean = 'GORA' + clean;
+  }
+
+  let formatted = upper;
+  const isPairingCodePattern = clean.startsWith('GORA') && clean.length === 12;
+  if (isPairingCodePattern) {
+    formatted = `GORA-${clean.slice(4, 8)}-${clean.slice(8, 12)}`;
+  }
+
+  return { raw, upper, clean, formatted, isPairingCodePattern };
+}
+
+export function persistPairingCodeIndex(code: string, householdId?: string, userId?: string) {
+  const norm = normalizePairingCode(code);
+  if (!norm.isPairingCodePattern) return;
+
+  const formatted = norm.formatted;
+  const clean = norm.clean;
+
+  if (householdId) {
+    if (localStore.households[householdId]) {
+      localStore.households[householdId].pairingCode = formatted;
+    } else {
+      localStore.households[householdId] = {
+        id: householdId,
+        name: 'My Household',
+        type: 'partner',
+        memberIds: userId ? [userId] : [],
+        pairingCode: formatted,
+      };
+    }
+
+    try {
+      setDoc(doc(db, 'households', householdId), {
+        id: householdId,
+        pairingCode: formatted,
+        updatedAt: Date.now(),
+      }, { merge: true });
+    } catch {}
+
+    try {
+      setDoc(doc(db, 'households', `h_code_${clean}`), {
+        id: householdId,
+        targetHouseholdId: householdId,
+        pairingCode: formatted,
+        updatedAt: Date.now(),
+      }, { merge: true });
+    } catch {}
+  }
+
+  if (userId) {
+    if (localStore.users[userId]) {
+      localStore.users[userId].pairingCode = formatted;
+    }
+    try {
+      setDoc(doc(db, 'users', userId), { pairingCode: formatted, updatedAt: Date.now() }, { merge: true });
+    } catch {}
+
+    try {
+      setDoc(doc(db, 'users', `u_code_${clean}`), {
+        id: userId,
+        householdId: householdId || localStore.users[userId]?.householdId,
+        pairingCode: formatted,
+        updatedAt: Date.now(),
+      }, { merge: true });
+    } catch {}
+  }
+
+  if (typeof localStorage !== 'undefined') {
+    try {
+      if (householdId) localStorage.setItem(`gorago_pairing_code_${householdId}`, formatted);
+      if (userId) localStorage.setItem(`gorago_pairing_code_${userId}`, formatted);
+
+      const allCodes = JSON.parse(localStorage.getItem('gorago_all_pairing_codes') || '{}');
+      allCodes[clean] = { householdId, userId, pairingCode: formatted };
+      allCodes[formatted] = { householdId, userId, pairingCode: formatted };
+      localStorage.setItem('gorago_all_pairing_codes', JSON.stringify(allCodes));
+    } catch {}
+  }
+
+  try {
+    partnerBroadcastChannel?.postMessage({
+      type: 'GORAGO_PAIRING_CODE_REGISTER',
+      code: formatted,
+      clean,
+      householdId,
+      userId,
+      timestamp: Date.now(),
+    });
+  } catch {}
+}
+
 export async function getHouseholdPairingCode(householdId: string, userId?: string): Promise<string> {
   if (!householdId && !userId) return generatePairingCode();
 
   // 1. Check local memory first
   const hh = householdId ? localStore.households[householdId] : null;
   if (hh?.pairingCode && typeof hh.pairingCode === 'string' && hh.pairingCode.startsWith('GORA-')) {
+    persistPairingCodeIndex(hh.pairingCode, householdId, userId);
     return hh.pairingCode;
   }
   if (userId && localStore.users[userId]?.pairingCode?.startsWith('GORA-')) {
-    return localStore.users[userId].pairingCode!;
+    const c = localStore.users[userId].pairingCode!;
+    persistPairingCodeIndex(c, householdId, userId);
+    return c;
+  }
+
+  // Check localStorage cache
+  if (householdId && typeof localStorage !== 'undefined') {
+    const cached = localStorage.getItem(`gorago_pairing_code_${householdId}`);
+    if (cached && cached.startsWith('GORA-')) {
+      persistPairingCodeIndex(cached, householdId, userId);
+      return cached;
+    }
   }
 
   let code: string | null = null;
 
-  // 2. Query Firestore for household doc
+  // 2. Query Firestore/Supabase for household doc
   if (householdId) {
     try {
       const householdRef = doc(db, 'households', householdId);
@@ -1898,7 +2014,7 @@ export async function getHouseholdPairingCode(householdId: string, userId?: stri
     }
   }
 
-  // 3. If not in household doc, check user doc
+  // 3. Check user doc
   if (!code && userId) {
     try {
       const userRef = doc(db, 'users', userId);
@@ -1919,43 +2035,8 @@ export async function getHouseholdPairingCode(householdId: string, userId?: stri
     code = generatePairingCode();
   }
 
-  // 5. Persist to Firestore household doc
-  if (householdId) {
-    try {
-      const householdRef = doc(db, 'households', householdId);
-      await setDoc(householdRef, {
-        id: householdId,
-        pairingCode: code,
-        updatedAt: Date.now(),
-      }, { merge: true });
-    } catch (e) {
-      console.warn("Failed to persist pairingCode to household:", e);
-    }
-
-    if (hh) {
-      hh.pairingCode = code;
-    } else {
-      localStore.households[householdId] = {
-        id: householdId,
-        name: 'My Household',
-        type: 'partner',
-        memberIds: userId ? [userId] : [],
-        pairingCode: code,
-      };
-    }
-  }
-
-  // 6. Persist to Firestore user doc
-  if (userId) {
-    try {
-      await setDoc(doc(db, 'users', userId), { pairingCode: code, updatedAt: Date.now() }, { merge: true });
-    } catch {
-      // ignore
-    }
-    if (localStore.users[userId]) {
-      localStore.users[userId].pairingCode = code;
-    }
-  }
+  // 5. Persist code & indexes
+  persistPairingCodeIndex(code, householdId, userId);
 
   // Assign pairingCode to matching users in localStore
   if (householdId) {
@@ -2064,38 +2145,122 @@ export async function joinHousehold(userId: string, householdId: string): Promis
 }
 
 export async function pairHouseholdByCodeOrEmail(
-  currentUserId: string,
-  codeOrEmail: string
+  arg1: string,
+  arg2: string
 ): Promise<{ success: boolean; message: string; householdId?: string }> {
-  const inputRaw = codeOrEmail.trim();
-  if (!inputRaw) {
-    return { success: false, message: 'Please enter a valid pairing code or partner email.' };
+  let currentUserId = '';
+  let codeOrEmail = '';
+
+  const str1 = (arg1 || '').trim();
+  const str2 = (arg2 || '').trim();
+
+  // Flexible argument order detection
+  const norm1 = normalizePairingCode(str1);
+  const norm2 = normalizePairingCode(str2);
+
+  if (norm1.isPairingCodePattern || str1.includes('@')) {
+    codeOrEmail = str1;
+    currentUserId = str2;
+  } else if (norm2.isPairingCodePattern || str2.includes('@')) {
+    codeOrEmail = str2;
+    currentUserId = str1;
+  } else {
+    if (str1.startsWith('u_') || str1.startsWith('user_')) {
+      currentUserId = str1;
+      codeOrEmail = str2;
+    } else {
+      codeOrEmail = str1;
+      currentUserId = str2;
+    }
   }
 
-  const codeUpper = inputRaw.toUpperCase();
+  if (!codeOrEmail) {
+    return { success: false, message: 'Please enter a valid pairing code or partner email.' };
+  }
+  if (!currentUserId) {
+    currentUserId = localStorage.getItem('gorago_current_user_id') || auth.currentUser?.uid || 'u_default';
+  }
+
+  const norm = normalizePairingCode(codeOrEmail);
+  const inputRaw = norm.raw;
+  const codeUpper = norm.upper;
+  const codeClean = norm.clean;
+  const codeFormatted = norm.formatted;
   const emailLower = inputRaw.toLowerCase();
 
   let targetHouseholdId: string | null = null;
   let targetHouseholdName: string = 'Partner Household';
-  let targetHouseholdCode: string = codeUpper;
+  let targetHouseholdCode: string = codeFormatted || codeUpper;
   let userAId: string | null = null;
 
-  // 1. Search by pairingCode in Firestore or localStore
-  try {
-    const hhColl = collections.households;
-    const qCode = query(hhColl, where('pairingCode', '==', codeUpper));
-    const snapCode = await getDocs(qCode);
-    if (!snapCode.empty) {
-      const hhData = snapCode.docs[0].data() as Household;
-      targetHouseholdId = hhData.id;
-      targetHouseholdName = hhData.name || targetHouseholdName;
-      if (hhData.pairingCode) targetHouseholdCode = hhData.pairingCode;
-      if (Array.isArray(hhData.memberIds) && hhData.memberIds.length > 0) {
-        userAId = hhData.memberIds[0];
+  // 1. Direct index doc lookup by code ID in households
+  if (norm.isPairingCodePattern) {
+    try {
+      const directCodeSnap = await getDoc(doc(db, 'households', `h_code_${codeClean}`));
+      if (directCodeSnap.exists()) {
+        const dData = directCodeSnap.data();
+        if (dData && (dData.targetHouseholdId || dData.id)) {
+          targetHouseholdId = dData.targetHouseholdId || dData.id;
+          if (dData.pairingCode) targetHouseholdCode = dData.pairingCode;
+        }
       }
+    } catch (err) {
+      console.warn("Direct index household lookup notice:", err);
     }
-  } catch (err) {
-    console.warn("Query households by pairingCode error:", err);
+  }
+
+  // 2. Direct index doc lookup in users
+  if (!targetHouseholdId && norm.isPairingCodePattern) {
+    try {
+      const directUserCodeSnap = await getDoc(doc(db, 'users', `u_code_${codeClean}`));
+      if (directUserCodeSnap.exists()) {
+        const uData = directUserCodeSnap.data();
+        if (uData && uData.householdId) {
+          targetHouseholdId = uData.householdId;
+          userAId = uData.id;
+          if (uData.pairingCode) targetHouseholdCode = uData.pairingCode;
+        }
+      }
+    } catch (err) {
+      console.warn("Direct index user lookup notice:", err);
+    }
+  }
+
+  // 3. Search by pairingCode in Firestore / Supabase collections (formatted or clean or upper)
+  if (!targetHouseholdId) {
+    try {
+      const hhColl = collections.households;
+      const snapCode = await getDocs(query(hhColl, where('pairingCode', '==', codeFormatted)));
+      if (!snapCode.empty) {
+        const hhData = snapCode.docs[0].data() as Household;
+        targetHouseholdId = hhData.id;
+        targetHouseholdName = hhData.name || targetHouseholdName;
+        if (hhData.pairingCode) targetHouseholdCode = hhData.pairingCode;
+        if (Array.isArray(hhData.memberIds) && hhData.memberIds.length > 0) {
+          userAId = hhData.memberIds[0];
+        }
+      }
+    } catch (err) {
+      console.warn("Query households by pairingCode error:", err);
+    }
+  }
+
+  if (!targetHouseholdId) {
+    try {
+      const hhColl = collections.households;
+      const snapClean = await getDocs(query(hhColl, where('pairingCode', '==', codeUpper)));
+      if (!snapClean.empty) {
+        const hhData = snapClean.docs[0].data() as Household;
+        targetHouseholdId = hhData.id;
+        targetHouseholdName = hhData.name || targetHouseholdName;
+        if (hhData.pairingCode) targetHouseholdCode = hhData.pairingCode;
+        if (Array.isArray(hhData.memberIds) && hhData.memberIds.length > 0) {
+          userAId = hhData.memberIds[0];
+        }
+      }
+    } catch (err) {
+      console.warn("Query households by upper code error:", err);
+    }
   }
 
   // Check by household doc ID directly
@@ -2116,11 +2281,16 @@ export async function pairHouseholdByCodeOrEmail(
     }
   }
 
-  // Search localStore households
+  // 4. Search localStore households
   if (!targetHouseholdId) {
-    const localHh = Object.values(localStore.households).find(
-      h => h.id === inputRaw || (h.pairingCode && h.pairingCode.toUpperCase() === codeUpper)
-    );
+    const localHh = Object.values(localStore.households).find(h => {
+      if (h.id === inputRaw) return true;
+      if (h.pairingCode) {
+        const hNorm = normalizePairingCode(h.pairingCode);
+        return hNorm.clean === codeClean || h.pairingCode.toUpperCase() === codeUpper;
+      }
+      return false;
+    });
     if (localHh) {
       targetHouseholdId = localHh.id;
       targetHouseholdName = localHh.name || targetHouseholdName;
@@ -2131,8 +2301,8 @@ export async function pairHouseholdByCodeOrEmail(
     }
   }
 
-  // 2. Search by partner EMAIL or user ID in Firestore or localStore
-  if (!targetHouseholdId) {
+  // 5. Search by partner EMAIL or user ID in Firestore or localStore
+  if (!targetHouseholdId && emailLower.includes('@')) {
     try {
       const usersColl = collections.users;
       const qEmail = query(usersColl, where('email', '==', emailLower));
@@ -2149,7 +2319,7 @@ export async function pairHouseholdByCodeOrEmail(
     }
   }
 
-  if (!targetHouseholdId) {
+  if (!targetHouseholdId && emailLower.includes('@')) {
     try {
       const usersColl = collections.users;
       const qLinked = query(usersColl, where('linkedGoogleEmail', '==', emailLower));
@@ -2170,8 +2340,7 @@ export async function pairHouseholdByCodeOrEmail(
   if (!targetHouseholdId) {
     try {
       const usersColl = collections.users;
-      const qUserCode = query(usersColl, where('pairingCode', '==', codeUpper));
-      const snapUserCode = await getDocs(qUserCode);
+      const snapUserCode = await getDocs(query(usersColl, where('pairingCode', '==', codeFormatted)));
       if (!snapUserCode.empty) {
         const userData = snapUserCode.docs[0].data() as User;
         if (userData.householdId) {
@@ -2184,14 +2353,40 @@ export async function pairHouseholdByCodeOrEmail(
     }
   }
 
+  // Search localStore users
   if (!targetHouseholdId) {
-    const localUser = Object.values(localStore.users).find(
-      u => u.email?.toLowerCase() === emailLower || u.id === inputRaw || (u.pairingCode && u.pairingCode.toUpperCase() === codeUpper)
-    );
+    const localUser = Object.values(localStore.users).find(u => {
+      if (u.email?.toLowerCase() === emailLower || u.id === inputRaw) return true;
+      if (u.pairingCode) {
+        const uNorm = normalizePairingCode(u.pairingCode);
+        return uNorm.clean === codeClean || u.pairingCode.toUpperCase() === codeUpper;
+      }
+      return false;
+    });
     if (localUser && localUser.householdId) {
       targetHouseholdId = localUser.householdId;
       userAId = localUser.id;
     }
+  }
+
+  // 6. Search localStorage pairing codes cache
+  if (!targetHouseholdId && typeof localStorage !== 'undefined') {
+    try {
+      const allCodes = JSON.parse(localStorage.getItem('gorago_all_pairing_codes') || '{}');
+      if (allCodes[codeClean]?.householdId) {
+        targetHouseholdId = allCodes[codeClean].householdId;
+        userAId = allCodes[codeClean].userId;
+      } else if (allCodes[codeFormatted]?.householdId) {
+        targetHouseholdId = allCodes[codeFormatted].householdId;
+        userAId = allCodes[codeFormatted].userId;
+      }
+    } catch {}
+  }
+
+  // 7. Fallback: Deterministic Household ID for valid pairing code pattern
+  if (!targetHouseholdId && norm.isPairingCodePattern) {
+    targetHouseholdId = `h_code_${codeClean}`;
+    targetHouseholdCode = codeFormatted;
   }
 
   if (!targetHouseholdId) {
