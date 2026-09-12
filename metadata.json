@@ -1,0 +1,6 @@
+{
+  "name": "GoraGo",
+  "description": "Smart household and personal finance tracker with offline sync, grocery budgeting, and CFO insights.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,369 @@
+
+> gorago@0.0.0 lint
+> oxlint
+
+
+  ! eslint(no-unused-vars): Variable 'userMessage' is declared but never used. Unused variables should start with a '_'.
+     ,-[server.ts:121:11]
+ 120 |     const { message, financialData, chatHistory } = req.body;
+ 121 |     const userMessage = (message || "").toLowerCase();
+     :           ^^^^^|^^^^^
+     :                `-- 'userMessage' is declared here
+ 122 | 
+     `----
+  help: Consider removing this declaration.
+
+  ! eslint(no-unused-vars): Catch parameter 'err' is caught but never used.
+     ,-[server.ts:581:16]
+ 580 |         }
+ 581 |       } catch (err) {
+     :                ^|^
+     :                 `-- 'err' is declared here
+ 582 |         // try next model
+     `----
+  help: Consider handling this error.
+
+  ! eslint(no-unused-vars): Catch parameter 'err' is caught but never used.
+     ,-[server.ts:666:16]
+ 665 |         }
+ 666 |       } catch (err) {
+     :                ^|^
+     :                 `-- 'err' is declared here
+ 667 |         // try next model
+     `----
+  help: Consider handling this error.
+
+  ! eslint(no-unused-vars): Variable 'radius' is declared but never used. Unused variables should start with a '_'.
+    ,-[generate-pwa-icons.cjs:78:9]
+ 77 |   const cy = height / 2;
+ 78 |   const radius = width / 2;
+    :         ^^^|^^
+    :            `-- 'radius' is declared here
+ 79 | 
+    `----
+  help: Consider removing this declaration.
+
+  ! eslint(no-unused-vars): Variable 'bgA' is declared but never used. Unused variables should start with a '_'.
+    ,-[generate-pwa-icons.cjs:85:37]
+ 84 |   // Background: Dark slate (#18181b / #09090b)
+ 85 |   let bgR = 24, bgG = 24, bgB = 27, bgA = 255;
+    :                                     ^|^
+    :                                      `-- 'bgA' is declared here
+ 86 |   if (!isMaskable) {
+    `----
+  help: Consider removing this declaration.
+
+  ! eslint(no-unused-vars): Variable 'isSigningIn' is assigned a value but never used. Unused variables should start with a '_'.
+    ,-[src/utils/googleCalendar.ts:10:5]
+  9 | let cachedAccessToken: string | null = null;
+ 10 | let isSigningIn = false;
+    :     ^^^^^|^^^^^
+    :          `-- 'isSigningIn' is declared here
+ 11 | 
+    `----
+    ,-[src/utils/googleCalendar.ts:30:5]
+ 29 |   } finally {
+ 30 |     isSigningIn = false;
+    :     ^^^^^|^^^^^
+    :          `-- it was last assigned here
+ 31 |   }
+    `----
+  help: Did you mean to use this variable?
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/utils/usePWAInstall.ts:18:5]
+ 12 | 
+ 13 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 14 |     // Detect standalone mode (already installed)
+ 15 |     const isStandalone =
+ 16 |       window.matchMedia('(display-mode: standalone)').matches ||
+ 17 |       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+ 18 |     setIsInstalled(isStandalone);
+    :     ^^^^^^^|^^^^^^
+    :            `-- Avoid calling setState() directly within an effect
+ 19 | 
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! eslint(no-unused-vars): Identifier 'X' is imported but never used.
+    ,-[src/pages/Home.tsx:14:86]
+ 13 | import HelpTooltip from '../components/HelpTooltip';
+ 14 | import { ArrowRightLeft, Plus, Receipt, TrendingUp, ChevronRight, ShieldCheck, Lock, X } from 'lucide-react';
+    :                                                                                      |
+    :                                                                                      `-- 'X' is imported here
+ 15 | 
+    `----
+  help: Consider removing this import.
+
+  ! react(purity): Cannot call impure function during render
+     ,-[src/pages/BillsDebts.tsx:195:25]
+ 194 |           } else {
+ 195 |             const now = Date.now();
+     :                         ^^^^^|^^^^
+     :                              `-- Cannot call impure function
+ 196 |             const upcoming = (bill.specificDates || []).filter(ts => ts >= now).sort((a, b) => a - b);
+     `----
+  help: `Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component re-renders
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/purity
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/pages/Tracker.tsx:29:7]
+ 26 | 
+ 27 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 28 |     if (storeCategoryFilter) {
+ 29 |       setSelectedCategoryId(storeCategoryFilter);
+    :       ^^^^^^^^^^|^^^^^^^^^^
+    :                 `-- Avoid calling setState() directly within an effect
+ 30 |     }
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/pages/Tracker.tsx:39:26]
+ 37 | 
+ 38 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 39 |     if (storeTypeFilter) setTypeFilter(storeTypeFilter);
+    :                          ^^^^^^|^^^^^^
+    :                                `-- Avoid calling setState() directly within an effect
+ 40 |   }, [storeTypeFilter]);
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/pages/Tracker.tsx:59:9]
+ 54 | 
+ 55 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 56 |     try {
+ 57 |       const stored = localStorage.getItem('ai_categorization_history');
+ 58 |       if (stored) {
+ 59 |         setAiHistory(JSON.parse(stored));
+    :         ^^^^^^|^^^^^
+    :               `-- Avoid calling setState() directly within an effect
+ 60 |       }
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! eslint(no-unused-vars): Identifier 'collections' is imported but never used.
+   ,-[src/components/GoraAIAssistant.tsx:2:10]
+ 1 | import { useState, useMemo, useCallback, useEffect } from 'react';
+ 2 | import { collections, useSafeCollectionData, payBill, saveAccount, saveCategory, saveTransaction, payDebt, saveGroceryItem } from '../db';
+   :          ^^^^^|^^^^^
+   :               `-- 'collections' is imported here
+ 3 | import type { Account, Bill, Debt, Transaction, Category } from '../db';
+   `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'Flame' is imported but never used.
+   ,-[src/components/GoraAIAssistant.tsx:8:27]
+ 7 |   PieChart, ShoppingBag, CheckCircle2, ChevronDown, 
+ 8 |   ChevronUp, ShieldCheck, Flame, BookmarkPlus, Plus, 
+   :                           ^^|^^
+   :                             `-- 'Flame' is imported here
+ 9 |   TrendingDown, TrendingUp, HelpCircle
+   `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'TrendingDown' is imported but never used.
+    ,-[src/components/GoraAIAssistant.tsx:9:3]
+  8 |   ChevronUp, ShieldCheck, Flame, BookmarkPlus, Plus, 
+  9 |   TrendingDown, TrendingUp, HelpCircle
+    :   ^^^^^^|^^^^^
+    :         `-- 'TrendingDown' is imported here
+ 10 | } from 'lucide-react';
+    `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'TrendingUp' is imported but never used.
+    ,-[src/components/GoraAIAssistant.tsx:9:17]
+  8 |   ChevronUp, ShieldCheck, Flame, BookmarkPlus, Plus, 
+  9 |   TrendingDown, TrendingUp, HelpCircle
+    :                 ^^^^^|^^^^
+    :                      `-- 'TrendingUp' is imported here
+ 10 | } from 'lucide-react';
+    `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'HelpCircle' is imported but never used.
+    ,-[src/components/GoraAIAssistant.tsx:9:29]
+  8 |   ChevronUp, ShieldCheck, Flame, BookmarkPlus, Plus, 
+  9 |   TrendingDown, TrendingUp, HelpCircle
+    :                             ^^^^^|^^^^
+    :                                  `-- 'HelpCircle' is imported here
+ 10 | } from 'lucide-react';
+    `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'saveUserMemory' is imported but never used.
+    ,-[src/components/GoraAIAssistant.tsx:18:26]
+ 17 |   getStoredFinancialGoals, saveFinancialGoal, deleteFinancialGoal,
+ 18 |   getStoredUserMemories, saveUserMemory, deleteUserMemory
+    :                          ^^^^^^^|^^^^^^
+    :                                 `-- 'saveUserMemory' is imported here
+ 19 | } from '../utils/aiMemory';
+    `----
+  help: Consider removing this import.
+
+  ! eslint(no-unused-vars): Identifier 'deleteUserMemory' is imported but never used.
+    ,-[src/components/GoraAIAssistant.tsx:18:42]
+ 17 |   getStoredFinancialGoals, saveFinancialGoal, deleteFinancialGoal,
+ 18 |   getStoredUserMemories, saveUserMemory, deleteUserMemory
+    :                                          ^^^^^^^^|^^^^^^^
+    :                                                  `-- 'deleteUserMemory' is imported here
+ 19 | } from '../utils/aiMemory';
+    `----
+  help: Consider removing this import.
+
+  ! react(purity): Cannot call impure function during render
+    ,-[src/components/GoraAIAssistant.tsx:97:18]
+ 96 |       text: 'Mabuhay! I am your GoraGo CFO, your warm and encouraging financial helper. I am here to help you manage your money, build your safety net, and reach your goals in Philippine Pesos (₱).',
+ 97 |       timestamp: Date.now(),
+    :                  ^^^^^|^^^^
+    :                       `-- Cannot call impure function
+ 98 |       quickFollowUps: [
+    `----
+  help: `Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component re-renders
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/purity
+
+  ! react(purity): Cannot call impure function during render
+     ,-[src/components/GoraAIAssistant.tsx:146:17]
+ 145 |   const proactiveInsights = useMemo(() => {
+ 146 |     const now = Date.now();
+     :                 ^^^^^|^^^^
+     :                      `-- Cannot call impure function
+ 147 |     const accounts = allAccounts || [];
+     `----
+  help: `Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component re-renders
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/purity
+
+  ! react(purity): Cannot call impure function during render
+     ,-[src/components/GoraAIAssistant.tsx:377:17]
+ 376 |   const financialSummary = useMemo(() => {
+ 377 |     const now = Date.now();
+     :                 ^^^^^|^^^^
+     :                      `-- Cannot call impure function
+ 378 |     const accounts = allAccounts || [];
+     `----
+  help: `Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component re-renders
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/purity
+
+  ! eslint(no-unused-vars): Variable 'regularAccounts' is declared but never used. Unused variables should start with a '_'.
+    ,-[src/pages/Accounts.tsx:28:9]
+ 27 | 
+ 28 |   const regularAccounts = accounts?.filter(a => !a.isSystemDefault) || [];
+    :         ^^^^^^^|^^^^^^^
+    :                `-- 'regularAccounts' is declared here
+ 29 |   const emergencyFund = accounts?.find(a => a.isSystemDefault && a.id === 'acc_system_ef');
+    `----
+  help: Consider removing this declaration.
+
+  ! eslint(no-unused-vars): Variable 'emergencyFund' is declared but never used. Unused variables should start with a '_'.
+    ,-[src/pages/Accounts.tsx:29:9]
+ 28 |   const regularAccounts = accounts?.filter(a => !a.isSystemDefault) || [];
+ 29 |   const emergencyFund = accounts?.find(a => a.isSystemDefault && a.id === 'acc_system_ef');
+    :         ^^^^^^|^^^^^^
+    :               `-- 'emergencyFund' is declared here
+ 30 | 
+    `----
+  help: Consider removing this declaration.
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/components/SettingsSheet.tsx:56:7]
+ 53 |   // Populate fields
+ 54 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 55 |     if (user && isOpen) {
+ 56 |       setName(user.name || '');
+    :       ^^^|^^^
+    :          `-- Avoid calling setState() directly within an effect
+ 57 |       setEmail(user.email || '');
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  x Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+     ,-[src/components/AccountDetailsSheet.tsx:227:8]
+ 226 |         </div>
+ 227 |       )}
+     :        ^
+ 228 |       
+     `----
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/components/BillDetailsSheet.tsx:70:7]
+ 67 |   // Initialize values
+ 68 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 69 |     if (bill) {
+ 70 |       setTempName(bill.name);
+    :       ^^^^^|^^^^^
+    :            `-- Avoid calling setState() directly within an effect
+ 71 |       setTempAmount(bill.amount.toString());
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+  ! react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+   ,-[src/components/CalendarPickers.tsx:4:14]
+ 3 | 
+ 4 | export const MONTHS = [
+   :              ^^^^^^
+ 5 |   'January', 'February', 'March', 'April', 'May', 'June',
+   `----
+
+  ! react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+    ,-[src/components/CalendarPickers.tsx:9:14]
+  8 | 
+  9 | export const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    :              ^^^^^^^^
+ 10 | 
+    `----
+
+  ! react(only-export-components): Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+    ,-[src/components/CalendarPickers.tsx:11:17]
+ 10 | 
+ 11 | export function getOrdinal(n: number) {
+    :                 ^^^^^^^^^^
+ 12 |   const s = ['th', 'st', 'nd', 'rd'];
+    `----
+
+  ! react(set-state-in-effect): Calling setState synchronously within an effect can trigger cascading renders
+    ,-[src/components/PaymentModal.tsx:56:7]
+ 43 |   // Initialize or reset default values when modal opens or item changes
+ 44 |   useEffect(() => {
+    :   ^^^^|^^^^
+    :       `-- This is the containing effect
+ 45 |     if (isOpen && item) {
+ 46 |       let defaultAmount = 0;
+ 47 |       let preferredAccountId = '';
+ 48 | 
+ 49 |       if (item.type === 'bill' && item.bill) {
+ 50 |         defaultAmount = item.bill.amount;
+ 51 |         preferredAccountId = item.bill.accountId || '';
+ 52 |       } else if (item.type === 'loan' && item.debt) {
+ 53 |         defaultAmount = Math.min(item.debt.installmentAmount, item.debt.remainingBalance);
+ 54 |       }
+ 55 | 
+ 56 |       setAmountInput(defaultAmount > 0 ? defaultAmount.toString() : '');
+    :       ^^^^^^^|^^^^^^
+    :              `-- Avoid calling setState() directly within an effect
+ 57 | 
+    `----
+  help: Effects should synchronize React with external systems. Calling setState synchronously inside an effect starts another render and is usually unnecessary. Derive the value during render, initialize state directly, or update it from the event that caused the change. Use an effect only when synchronizing with an external system.
+  note: React Compiler skipped optimizing this component or hook. Additional guidance: https://react.dev/reference/eslint-plugin-react-hooks/lints/set-state-in-effect
+
+Found 30 warnings and 1 error.
+Finished in 351ms on 55 files with 116 rules using 2 threads.

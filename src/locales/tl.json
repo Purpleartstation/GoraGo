@@ -1,0 +1,24 @@
+{
+  "nav": {
+    "home": "Home",
+    "tracker": "Tracker",
+    "bills": "Bills",
+    "accounts": "Accounts",
+    "insights": "Insights",
+    "grocery": "Mameng Planner"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Wika",
+    "english": "English",
+    "tagalog": "Tagalog"
+  },
+  "common": {
+    "add": "Magdagdag",
+    "save": "I-save",
+    "cancel": "Kanselahin",
+    "edit": "I-edit",
+    "delete": "Burahin",
+    "close": "Isara"
+  }
+}
